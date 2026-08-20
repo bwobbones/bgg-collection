@@ -43,6 +43,20 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
    BGG_USERNAME=your_bgg_username
    ```
 
+## Running the Web Application
+
+Launch the Express web app locally:
+
+```bash
+# Production mode
+npm start
+
+# Development mode with auto-reload (Node --watch / nodemon)
+npm run dev
+```
+
+Open `http://localhost:3000` in your browser.
+
 ## Usage
 
 ### Usage Plan / Modes
