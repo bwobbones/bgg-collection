@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let collectionData = null;
   let activeMode = "";
   let activeTab = "table";
+  let eventSource = null;
 
   const usernameInput = document.getElementById("usernameInput");
   const searchInput = document.getElementById("searchInput");
@@ -10,21 +11,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
-  
-  const presetButtons = document.querySelectorAll(".preset-btn");
-  const tabButtons = document.querySelectorAll(".tab-btn");
-  const tabContents = document.querySelectorAll(".tab-content");
+
+  const progressBox = document.getElementById("progressBox");
+  const progressStepBadge = document.getElementById("progressStepBadge");
+  const progressMessage = document.getElementById("progressMessage");
+  const progressPercentageText = document.getElementById("progressPercentageText");
+  const progressBar = document.getElementById("progressBar");
 
   const statsCard = document.getElementById("statsCard");
   const statsDetail = document.getElementById("statsDetail");
   const statsPctBadge = document.getElementById("statsPctBadge");
 
+  const resultsCard = document.getElementById("resultsCard");
   const resultsHeading = document.getElementById("resultsHeading");
   const resultsSummary = document.getElementById("resultsSummary");
   const tableBody = document.getElementById("tableBody");
   const compactListText = document.getElementById("compactListText");
   const jsonText = document.getElementById("jsonText");
   const copyListBtn = document.getElementById("copyListBtn");
+
+  const presetButtons = document.querySelectorAll(".preset-btn");
+  const tabButtons = document.querySelectorAll(".tab-btn");
+  const tabContents = document.querySelectorAll(".tab-content");
 
   // Handle Preset Button Clicks
   presetButtons.forEach((btn) => {
@@ -86,12 +94,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   fetchBtn.addEventListener("click", () => loadCollection());
 
-  // Helper function to capitalize
   function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
-  // Format rating with color badge
   function formatRatingBadge(rating) {
     if (rating === null || rating === undefined || isNaN(rating)) {
       return `<span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-500">N/A</span>`;
@@ -111,58 +117,137 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<span class="px-2 py-0.5 rounded text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">${text}</span>`;
   }
 
-  // Fetch collection from server API
-  async function loadCollection() {
+  function updateProgressUI(pct, stepName, msg) {
+    const safePct = Math.min(100, Math.max(0, pct || 0));
+    progressBar.style.width = `${safePct}%`;
+    progressPercentageText.textContent = `${safePct}%`;
+    if (stepName) progressStepBadge.textContent = stepName;
+    if (msg) progressMessage.textContent = msg;
+  }
+
+  // Fetch collection from server API using SSE Stream
+  function loadCollection() {
     const username = usernameInput.value.trim() || "bwobbones";
+
+    // Close any previous SSE stream
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+
+    // 1. Immediately remove current collection listing at start of new fetch
+    resultsCard.classList.add("hidden");
+    statsCard.classList.add("hidden");
+    tableBody.innerHTML = "";
+    compactListText.value = "";
+    jsonText.textContent = "";
+
+    // 2. Show Progress Box & reset progress bar
+    progressBox.classList.remove("hidden");
+    updateProgressUI(0, "Step 1/3", `Connecting to BGG for user "${username}"...`);
 
     fetchIcon.classList.add("animate-spin");
     fetchBtn.disabled = true;
 
-    try {
-      const params = new URLSearchParams({
-        username,
-        includeExpansions: includeExpansionsInput.checked ? "true" : "false",
-      });
+    const params = new URLSearchParams({
+      username,
+      includeExpansions: includeExpansionsInput.checked ? "true" : "false",
+    });
 
-      if (activeMode) params.append("mode", activeMode);
-      if (minRatingInput.value) params.append("minRating", minRatingInput.value);
-      if (bestAtInput.value) params.append("bestAt", bestAtInput.value);
+    if (activeMode) params.append("mode", activeMode);
+    if (minRatingInput.value) params.append("minRating", minRatingInput.value);
+    if (bestAtInput.value) params.append("bestAt", bestAtInput.value);
 
-      const res = await fetch(`/api/collection?${params.toString()}`);
-      const json = await res.json();
+    eventSource = new EventSource(`/api/collection/stream?${params.toString()}`);
 
-      if (!json.success) {
-        throw new Error(json.error || "API error");
+    eventSource.addEventListener("progress", (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        const pct = payload.percentage || 10;
+        let stepName = "Step 1/3";
+
+        if (payload.step === "collection" || payload.step === "queue") {
+          stepName = "Step 1/3";
+        } else if (payload.step === "things_start" || payload.step === "things") {
+          stepName = "Step 2/3";
+        } else if (payload.step === "filtering" || payload.step === "formatting") {
+          stepName = "Step 3/3";
+        }
+
+        updateProgressUI(pct, stepName, payload.message);
+      } catch (err) {
+        console.error("Progress parse error:", err);
       }
+    });
 
-      collectionData = json.data;
+    eventSource.addEventListener("complete", (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        eventSource.close();
+        eventSource = null;
 
-      // Update Gold Stats Card
-      if (activeMode === "allgold" || collectionData.goldCount > 0) {
-        statsCard.classList.remove("hidden");
-        statsDetail.textContent = `${collectionData.goldCount} / ${collectionData.totalEligibleCount} Gold Games`;
-        statsPctBadge.textContent = `${collectionData.goldPercentage}%`;
-      } else {
-        statsCard.classList.add("hidden");
+        if (!payload.success || !payload.data) {
+          throw new Error(payload.error || "Failed to load collection");
+        }
+
+        collectionData = payload.data;
+
+        // Finish Progress UI
+        updateProgressUI(100, "Done!", "Collection loaded successfully!");
+
+        setTimeout(() => {
+          progressBox.classList.add("hidden");
+
+          // Render Gold Stats Card if active
+          if (activeMode === "allgold" || collectionData.goldCount > 0) {
+            statsCard.classList.remove("hidden");
+            statsDetail.textContent = `${collectionData.goldCount} / ${collectionData.totalEligibleCount} Gold Games`;
+            statsPctBadge.textContent = `${collectionData.goldPercentage}%`;
+          }
+
+          // Update Results Heading & Render Table
+          const modeLabel = activeMode ? ` [preset: ${activeMode}]` : "";
+          resultsHeading.textContent = `Collection Results for ${collectionData.username}${modeLabel}`;
+
+          renderTable();
+          compactListText.value = collectionData.compactList || "";
+          jsonText.textContent = JSON.stringify(collectionData.items, null, 2);
+
+          resultsCard.classList.remove("hidden");
+        }, 500);
+
+      } catch (err) {
+        handleFetchError(err.message);
+      } finally {
+        fetchIcon.classList.remove("animate-spin");
+        fetchBtn.disabled = false;
       }
+    });
 
-      // Update Results Header
-      const modeLabel = activeMode ? ` [preset: ${activeMode}]` : "";
-      resultsHeading.textContent = `Collection Results for ${collectionData.username}${modeLabel}`;
-      
-      renderTable();
-      compactListText.value = collectionData.compactList || "";
-      jsonText.textContent = JSON.stringify(collectionData.items, null, 2);
+    eventSource.addEventListener("error", (e) => {
+      let errMsg = "Connection to server failed";
+      try {
+        if (e.data) {
+          const payload = JSON.parse(e.data);
+          errMsg = payload.error || errMsg;
+        }
+      } catch (ex) {}
 
-    } catch (err) {
-      alert(`Error: ${err.message}`);
-    } finally {
-      fetchIcon.classList.remove("animate-spin");
-      fetchBtn.disabled = false;
-    }
+      handleFetchError(errMsg);
+    });
   }
 
-  // Render Table Rows with Client-side Title Search Filter
+  function handleFetchError(msg) {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+    progressBox.classList.add("hidden");
+    fetchIcon.classList.remove("animate-spin");
+    fetchBtn.disabled = false;
+    alert(`Error: ${msg}`);
+  }
+
   function renderTable() {
     if (!collectionData || !collectionData.items) {
       tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
