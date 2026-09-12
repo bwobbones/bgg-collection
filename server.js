@@ -93,6 +93,7 @@ app.get("/api/collection/stream", async (req, res) => {
       bestAt,
       playerCounts,
       includeExpansions,
+      includeExclusions,
     } = req.query;
 
     const result = await getProcessedCollection({
@@ -109,6 +110,7 @@ app.get("/api/collection/stream", async (req, res) => {
           : String(playerCounts).split(",")
         : undefined,
       includeExpansions: includeExpansions === "true" || includeExpansions === "1",
+      includeExclusions: includeExclusions === "true" || includeExclusions === "1",
       verbose: true,
       onProgress: (p) => sendSSE("progress", p),
     });
@@ -136,6 +138,7 @@ app.get("/api/collection", async (req, res) => {
       bestAt,
       playerCounts,
       includeExpansions,
+      includeExclusions,
     } = req.query;
 
     const result = await getProcessedCollection({
@@ -152,6 +155,7 @@ app.get("/api/collection", async (req, res) => {
           : String(playerCounts).split(",")
         : undefined,
       includeExpansions: includeExpansions === "true" || includeExpansions === "1",
+      includeExclusions: includeExclusions === "true" || includeExclusions === "1",
       verbose: true,
     });
 

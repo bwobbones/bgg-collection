@@ -144,7 +144,7 @@
           </div>
         </div>
 
-        <!-- 3. Fine-Tune Options (Min Rating & Expansions) -->
+        <!-- 3. Fine-Tune Options (Min Rating, Expansions & Exclusions) -->
         <div class="flex flex-wrap items-center gap-6 pt-3 border-t border-slate-200/60">
           <div class="w-36">
             <label for="minRatingInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
@@ -158,6 +158,13 @@
             <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
               <input type="checkbox" id="includeExpansionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
               Include Expansions
+            </label>
+          </div>
+
+          <div class="flex items-center pt-4">
+            <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
+              <input type="checkbox" id="includeExclusionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
+              <span>Include Excluded Games (<span id="exclusionsCountBadge" class="text-amber-600 font-black">16 excluded</span>)</span>
             </label>
           </div>
         </div>

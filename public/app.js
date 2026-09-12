@@ -33,6 +33,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("searchInput");
   const minRatingInput = document.getElementById("minRatingInput");
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
+  const includeExclusionsInput = document.getElementById("includeExclusionsInput");
+  const exclusionsCountBadge = document.getElementById("exclusionsCountBadge");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
   const refreshBtn = document.getElementById("refreshBtn");
@@ -225,10 +227,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Reload when "Include Expansions" checkbox toggles
+  // Reload when "Include Expansions" or "Include Exclusions" checkbox toggles
   includeExpansionsInput.addEventListener("change", () => {
     loadCollection({ forceRefresh: true });
   });
+
+  if (includeExclusionsInput) {
+    includeExclusionsInput.addEventListener("change", () => {
+      loadCollection({ forceRefresh: true });
+    });
+  }
 
   // Fetch / Refresh Buttons
   fetchBtn.addEventListener("click", () => loadCollection({ forceRefresh: true }));
@@ -605,13 +613,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const { forceRefresh = false } = options;
     const username = usernameInput.value.trim() || "bwobbones";
     const includeExpansions = includeExpansionsInput.checked;
+    const includeExclusions = includeExclusionsInput ? includeExclusionsInput.checked : false;
 
-    // If data is already loaded for this user & expansion setting, filter client-side instantly!
+    // If data is already loaded for this user, expansion & exclusion setting, filter client-side instantly!
     if (
       !forceRefresh &&
       rawCollectionData &&
       loadedUsername === username &&
-      loadedIncludeExpansions === includeExpansions
+      loadedIncludeExpansions === includeExpansions &&
+      loadedIncludeExclusions === includeExclusions
     ) {
       applyClientFilters();
       return;
@@ -642,6 +652,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const params = new URLSearchParams({
       username,
       includeExpansions: includeExpansions ? "true" : "false",
+      includeExclusions: includeExclusions ? "true" : "false",
     });
 
     eventSource = new EventSource(`/api/collection/stream?${params.toString()}`);
@@ -679,6 +690,11 @@ document.addEventListener("DOMContentLoaded", () => {
         rawCollectionData = payload.data;
         loadedUsername = username;
         loadedIncludeExpansions = includeExpansions;
+        loadedIncludeExclusions = includeExclusions;
+
+        if (exclusionsCountBadge && rawCollectionData.excludedCount !== undefined) {
+          exclusionsCountBadge.textContent = `${rawCollectionData.excludedCount} excluded`;
+        }
 
         // Finish Progress UI
         updateProgressUI(100, "Done!", "Collection loaded successfully!");

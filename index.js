@@ -33,6 +33,7 @@ program
   .option("--all", "Fetch all items without applying status filter on API")
   .option("--subtype <subtype>", "BGG item subtype (e.g. boardgame, boardgameexpansion)", "boardgame")
   .option("--include-expansions", "Include expansions in the output (excluded by default)", false)
+  .option("--include-exclusions", "Include games from the hardcoded exclusion list", false)
   .option("-f, --format <format>", "Output format: table, simple, list, json, csv", "table")
   .option("--list", "Output item names as a comma-separated list with all spaces removed")
   .option("-s, --sort <field>", "Sort by: name, year, rating, avg-rating, rank, plays", "name")
@@ -87,6 +88,7 @@ program
         all: options.all,
         subtype: options.subtype,
         includeExpansions: options.includeExpansions,
+        includeExclusions: options.includeExclusions,
         query: options.query,
         minRating: options.minRating,
         maxRating: options.maxRating,
