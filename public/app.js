@@ -30,7 +30,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const usernameInput = document.getElementById("usernameInput");
   const searchInput = document.getElementById("searchInput");
   const minRatingInput = document.getElementById("minRatingInput");
-  const bestAtInput = document.getElementById("bestAtInput");
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
@@ -58,6 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const seasonSelectBtns = document.querySelectorAll(".season-select-btn");
 
   const presetButtons = document.querySelectorAll(".preset-btn");
+  const pcPills = document.querySelectorAll(".pc-pill");
   const tabButtons = document.querySelectorAll(".tab-btn");
   const tabContents = document.querySelectorAll(".tab-content");
 
@@ -72,6 +72,48 @@ document.addEventListener("DOMContentLoaded", () => {
   const winnerBestAt = document.getElementById("winnerBestAt");
   const winnerRating = document.getElementById("winnerRating");
   const winnerImgContainer = document.getElementById("winnerImgContainer");
+
+  // Get active selected player counts from pills
+  function getSelectedPlayerCounts() {
+    const selected = [];
+    pcPills.forEach((pill) => {
+      if (pill.classList.contains("active-pc")) {
+        selected.push(pill.dataset.pc);
+      }
+    });
+    return selected;
+  }
+
+  // Set active player count pills
+  function setSelectedPlayerCounts(counts) {
+    pcPills.forEach((pill) => {
+      const pc = pill.dataset.pc;
+      if (counts.includes(pc)) {
+        pill.classList.add("active-pc", "border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
+        pill.classList.remove("border-slate-700", "bg-slate-900", "text-slate-400");
+      } else {
+        pill.classList.remove("active-pc", "border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
+        pill.classList.add("border-slate-700", "bg-slate-900", "text-slate-400");
+      }
+    });
+  }
+
+  // Bind Player Count Pill Clicks (Multiselect on Change)
+  pcPills.forEach((pill) => {
+    pill.addEventListener("click", () => {
+      pill.classList.toggle("active-pc");
+      if (pill.classList.contains("active-pc")) {
+        pill.classList.add("border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
+        pill.classList.remove("border-slate-700", "bg-slate-900", "text-slate-400");
+      } else {
+        pill.classList.remove("border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
+        pill.classList.add("border-slate-700", "bg-slate-900", "text-slate-400");
+      }
+
+      // Trigger automatic re-query on change
+      loadCollection();
+    });
+  });
 
   // Detect season based on current month (Northern Hemisphere)
   function detectCurrentSeason() {
@@ -131,6 +173,14 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       activeMode = btn.dataset.mode || "";
+
+      // Sync player count pills to preset mode
+      if (activeMode === "2p") {
+        setSelectedPlayerCounts(["2p"]);
+      } else if (activeMode === "gold" || activeMode === "shit") {
+        setSelectedPlayerCounts(["3p", "4p", "5p", "6+p"]);
+      }
+
       loadCollection();
     });
   });
@@ -400,6 +450,8 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchIcon.classList.add("animate-spin");
     fetchBtn.disabled = true;
 
+    const selectedPlayerCounts = getSelectedPlayerCounts();
+
     const params = new URLSearchParams({
       username,
       includeExpansions: includeExpansionsInput.checked ? "true" : "false",
@@ -407,7 +459,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (activeMode) params.append("mode", activeMode);
     if (minRatingInput.value) params.append("minRating", minRatingInput.value);
-    if (bestAtInput.value) params.append("bestAt", bestAtInput.value);
+    if (selectedPlayerCounts.length > 0) {
+      params.append("playerCounts", selectedPlayerCounts.join(","));
+    }
 
     eventSource = new EventSource(`/api/collection/stream?${params.toString()}`);
 

@@ -11,11 +11,67 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+/**
+ * Cloudflare Access JWT Middleware
+ * Prevents direct access via onrender.com URLs by enforcing Cloudflare JWT header
+ */
+app.use((req, res, next) => {
+  const enforceAuth =
+    process.env.ENFORCE_CLOUDFLARE_AUTH === "true" ||
+    Boolean(process.env.CLOUDFLARE_AUD);
+
+  if (enforceAuth) {
+    const jwtToken = req.headers["cf-access-jwt-assertion"];
+
+    if (!jwtToken) {
+      return res
+        .status(403)
+        .send(
+          "<!DOCTYPE html><html><head><title>403 Forbidden</title>" +
+            "<style>body{font-family:sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}" +
+            ".box{background:#1e293b;padding:2rem;border-radius:1rem;border:1px solid #334155;max-width:480px;text-align:center;}" +
+            "h1{color:#f59e0b;margin-top:0;}p{color:#94a3b8;font-size:0.9rem;}</style></head>" +
+            "<body><div class='box'><h1>403 Forbidden</h1>" +
+            "<p>Direct access to this server is not allowed. You must access this application through Cloudflare Access.</p>" +
+            "</div></body></html>"
+        );
+    }
+
+    try {
+      const parts = jwtToken.split(".");
+      if (parts.length === 3) {
+        const payloadJson = Buffer.from(parts[1], "base64url").toString("utf-8");
+        const payload = JSON.parse(payloadJson);
+
+        if (
+          process.env.CLOUDFLARE_AUD &&
+          payload.aud !== process.env.CLOUDFLARE_AUD
+        ) {
+          return res
+            .status(403)
+            .send("<h1>403 Forbidden</h1><p>Invalid Cloudflare Access Audience tag.</p>");
+        }
+
+        req.cfUser = {
+          email: payload.email,
+          sub: payload.sub,
+        };
+      }
+    } catch (e) {
+      return res
+        .status(403)
+        .send("<h1>403 Forbidden</h1><p>Invalid Cloudflare Access JWT assertion.</p>");
+    }
+  }
+
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 /**
  * Server-Sent Events (SSE) Stream Route: GET /api/collection/stream
- * Streams real-time progress updates and returns final data chunk
  */
 app.get("/api/collection/stream", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -35,6 +91,7 @@ app.get("/api/collection/stream", async (req, res) => {
       maxRating,
       minPlays,
       bestAt,
+      playerCounts,
       includeExpansions,
     } = req.query;
 
@@ -46,6 +103,11 @@ app.get("/api/collection/stream", async (req, res) => {
       maxRating: maxRating ? parseFloat(maxRating) : null,
       minPlays: minPlays ? parseInt(minPlays, 10) : null,
       bestAt: bestAt ? String(bestAt).trim() : null,
+      playerCounts: playerCounts
+        ? Array.isArray(playerCounts)
+          ? playerCounts
+          : String(playerCounts).split(",")
+        : undefined,
       includeExpansions: includeExpansions === "true" || includeExpansions === "1",
       verbose: true,
       onProgress: (p) => sendSSE("progress", p),
@@ -72,6 +134,7 @@ app.get("/api/collection", async (req, res) => {
       maxRating,
       minPlays,
       bestAt,
+      playerCounts,
       includeExpansions,
     } = req.query;
 
@@ -83,6 +146,11 @@ app.get("/api/collection", async (req, res) => {
       maxRating: maxRating ? parseFloat(maxRating) : null,
       minPlays: minPlays ? parseInt(minPlays, 10) : null,
       bestAt: bestAt ? String(bestAt).trim() : null,
+      playerCounts: playerCounts
+        ? Array.isArray(playerCounts)
+          ? playerCounts
+          : String(playerCounts).split(",")
+        : undefined,
       includeExpansions: includeExpansions === "true" || includeExpansions === "1",
       verbose: true,
     });

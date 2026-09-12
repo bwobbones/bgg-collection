@@ -10,6 +10,8 @@
   --badge-bg: rgba(245, 158, 11, 0.15);
   --badge-border: rgba(245, 158, 11, 0.3);
   --badge-text: #fbbf24;
+  --brand-bg: #f59e0b;
+  --brand-text: #0f172a;
 }
 
 [data-season="winter"] {
@@ -22,11 +24,13 @@
   --badge-bg: rgba(56, 189, 248, 0.15);
   --badge-border: rgba(56, 189, 248, 0.3);
   --badge-text: #7dd3fc;
+  --brand-bg: #38bdf8;
+  --brand-text: #0b132b;
 }
 
 [data-season="spring"] {
-  --bg-main: #064e3b;
-  --bg-card: #065f46;
+  --bg-main: #022c22;
+  --bg-card: #064e3b;
   --bg-input: #022c22;
   --border-color: #047857;
   --accent-main: #34d399;
@@ -34,6 +38,8 @@
   --badge-bg: rgba(52, 211, 153, 0.15);
   --badge-border: rgba(52, 211, 153, 0.3);
   --badge-text: #6ee7b7;
+  --brand-bg: #34d399;
+  --brand-text: #022c22;
 }
 
 [data-season="autumn"] {
@@ -46,11 +52,25 @@
   --badge-bg: rgba(234, 88, 12, 0.15);
   --badge-border: rgba(234, 88, 12, 0.3);
   --badge-text: #fb923c;
+  --brand-bg: #ea580c;
+  --brand-text: #1c1917;
 }
 
 body {
   background-color: var(--bg-main) !important;
   transition: background-color 0.5s ease;
+}
+
+header {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  transition: all 0.5s ease;
+}
+
+.brand-icon {
+  background-color: var(--brand-bg) !important;
+  color: var(--brand-text) !important;
+  transition: all 0.5s ease;
 }
 
 .season-card {
