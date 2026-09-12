@@ -61,11 +61,11 @@
 
   <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
 
-    <!-- Control Panel -->
+    <!-- Unified Control & Filter Panel -->
     <div class="season-card bg-white border border-slate-200 rounded-2xl p-6 shadow-lg space-y-6">
       
-      <!-- Top Row: Username + Preset Modes -->
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+      <!-- Top Row: User Credentials & Search Inputs -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 items-end">
         <div class="md:col-span-4">
           <label for="usernameInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
             BGG Username
@@ -77,35 +77,53 @@
           </div>
         </div>
 
-        <!-- Mode Preset Buttons -->
-        <div class="md:col-span-8">
+        <div class="md:col-span-5">
+          <label for="searchInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+            Title Search
+          </label>
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="searchInput" placeholder="Search titles..."
+              class="season-input w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+          </div>
+        </div>
+
+        <div class="md:col-span-3 flex justify-end">
+          <button id="fetchBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/30 text-sm">
+            <i class="fa-solid fa-arrows-rotate" id="fetchIcon"></i>
+            <span>Fetch Collection</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Unified Filter Options Section (All Options Grouped in One Place) -->
+      <div class="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+        
+        <!-- 1. All / Gold / Shit Preset Buttons placed DIRECTLY ABOVE Player Counts -->
+        <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-            Preset Filter Modes
+            Rating Preset (All / Gold / Shit)
           </label>
           <div class="flex flex-wrap gap-2" id="presetButtons">
             <button data-mode="" class="preset-btn px-4 py-2 rounded-xl text-xs font-bold transition border border-amber-500 bg-amber-500 text-white shadow-sm">
               All Games
             </button>
-            <button data-mode="gold" class="preset-btn px-4 py-2 rounded-xl text-xs font-bold transition border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">
+            <button data-mode="gold" class="preset-btn px-4 py-2 rounded-xl text-xs font-bold transition border border-slate-200 bg-white text-slate-700 hover:bg-slate-100">
               <i class="fa-solid fa-star text-amber-500 mr-1"></i> gold (≥7.2)
             </button>
-            <button data-mode="shit" class="preset-btn px-4 py-2 rounded-xl text-xs font-bold transition border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">
+            <button data-mode="shit" class="preset-btn px-4 py-2 rounded-xl text-xs font-bold transition border border-slate-200 bg-white text-slate-700 hover:bg-slate-100">
               <i class="fa-solid fa-poop text-amber-700 mr-1"></i> shit (≤7.1)
             </button>
           </div>
         </div>
-      </div>
 
-      <!-- Second Row: Player Count Multiselect + Title Search + Filters -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 pt-4 border-t border-slate-100 items-end">
-        
-        <!-- Player Counts Multiselect Pill Group (Defaults to 3+) -->
-        <div class="md:col-span-5">
+        <!-- 2. Player Counts (Directly Below Presets) -->
+        <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-            Player Counts (Best At Multiselect)
+            Player Counts (Best At)
           </label>
           <div class="flex flex-wrap gap-1.5" id="playerCountPills">
-            <button data-pc="2p" class="pc-pill px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-slate-200 bg-slate-50 text-slate-600 hover:text-slate-900">
+            <button data-pc="2p" class="pc-pill px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-slate-200 bg-white text-slate-600 hover:text-slate-900">
               2p
             </button>
             <button data-pc="3p" class="pc-pill active-pc px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-amber-500 bg-amber-500 text-white shadow-sm">
@@ -123,39 +141,24 @@
           </div>
         </div>
 
-        <div class="md:col-span-3">
-          <label for="searchInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-            Title Search
-          </label>
-          <div class="relative">
-            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-            <input type="text" id="searchInput" placeholder="Search titles..."
-              class="season-input w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+        <!-- 3. Fine-Tune Options (Min Rating & Expansions) -->
+        <div class="flex flex-wrap items-center gap-6 pt-3 border-t border-slate-200/60">
+          <div class="w-36">
+            <label for="minRatingInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Min Rating
+            </label>
+            <input type="number" id="minRatingInput" step="0.1" min="0" max="10" placeholder="e.g. 7.0"
+              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+          </div>
+
+          <div class="flex items-center pt-4">
+            <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
+              <input type="checkbox" id="includeExpansionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
+              Include Expansions
+            </label>
           </div>
         </div>
 
-        <div class="md:col-span-2">
-          <label for="minRatingInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-            Min Rating
-          </label>
-          <input type="number" id="minRatingInput" step="0.1" min="0" max="10" placeholder="e.g. 7.0"
-            class="season-input w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
-        </div>
-
-        <div class="md:col-span-2 flex items-center pb-2">
-          <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
-            <input type="checkbox" id="includeExpansionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
-            Expansions
-          </label>
-        </div>
-      </div>
-
-      <!-- Action Button -->
-      <div class="flex justify-end pt-2">
-        <button id="fetchBtn" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-7 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-amber-500/30 text-sm">
-          <i class="fa-solid fa-arrows-rotate" id="fetchIcon"></i>
-          <span>Fetch Collection</span>
-        </button>
       </div>
 
     </div>
