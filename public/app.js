@@ -447,6 +447,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     for (const opt of selectedCounts) {
       const cleanOpt = String(opt).toLowerCase().trim();
+      if (cleanOpt === "1p" && nums.includes(1)) return true;
       if (cleanOpt === "2p" && nums.includes(2)) return true;
       if (cleanOpt === "3p" && nums.includes(3)) return true;
       if (cleanOpt === "4p" && nums.includes(4)) return true;
