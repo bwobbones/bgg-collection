@@ -1,8 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
-  let collectionData = null;
-  let activeMode = "";
+  let rawCollectionData = null; // Full dataset loaded from BGG server
+  let filteredItems = [];       // Client-side filtered items
+  let activeMode = "";          // '', 'gold', 'shit'
   let activeTab = "table";
   let eventSource = null;
+  let loadedUsername = "";
+  let loadedIncludeExpansions = false;
 
   // Seasonal Theme Setup
   let currentSeason = detectCurrentSeason();
@@ -25,7 +28,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let ctx = wheelCanvas ? wheelCanvas.getContext("2d") : null;
   let currentAngle = 0;
   let isSpinning = false;
-  let currentWheelItems = [];
 
   const usernameInput = document.getElementById("usernameInput");
   const searchInput = document.getElementById("searchInput");
@@ -33,6 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
+  const refreshBtn = document.getElementById("refreshBtn");
+  const refreshIcon = document.getElementById("refreshIcon");
 
   const progressBox = document.getElementById("progressBox");
   const progressStepBadge = document.getElementById("progressStepBadge");
@@ -98,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Bind Player Count Pill Clicks (Multiselect on Change)
+  // Bind Player Count Pill Clicks (Client-side instant change)
   pcPills.forEach((pill) => {
     pill.addEventListener("click", () => {
       pill.classList.toggle("active-pc");
@@ -110,20 +114,20 @@ document.addEventListener("DOMContentLoaded", () => {
         pill.classList.add("border-slate-200", "bg-slate-50", "text-slate-600");
       }
 
-      loadCollection();
+      applyClientFilters();
     });
   });
 
   // Detect season based on current month (Northern Hemisphere)
   function detectCurrentSeason() {
-    const month = new Date().getMonth(); // 0 = Jan, 11 = Dec
+    const month = new Date().getMonth();
     if (month === 11 || month === 0 || month === 1) return "winter";
     if (month >= 2 && month <= 4) return "spring";
     if (month >= 5 && month <= 7) return "summer";
     return "autumn";
   }
 
-  // Apply Season Theme to HTML Body and Badges
+  // Apply Season Theme
   function applySeasonTheme(season) {
     currentSeason = season;
     document.documentElement.setAttribute("data-season", season);
@@ -152,7 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Handle Preset Button Clicks
+  // Handle Preset Button Clicks (Client-side instant filter)
   presetButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       presetButtons.forEach((b) => {
@@ -175,12 +179,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       activeMode = btn.dataset.mode || "";
 
-      // Sync player count pills to preset mode
       if (activeMode === "gold" || activeMode === "shit") {
         setSelectedPlayerCounts(["3p", "4p", "5p", "6+p"]);
       }
 
-      loadCollection();
+      applyClientFilters();
     });
   });
 
@@ -213,22 +216,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Live Filter on Search Input
-  searchInput.addEventListener("input", () => {
-    renderTable();
-  });
+  // Client-side Filters Trigger
+  searchInput.addEventListener("input", () => applyClientFilters());
+  minRatingInput.addEventListener("input", () => applyClientFilters());
 
-  fetchBtn.addEventListener("click", () => loadCollection());
+  // Fetch / Refresh Buttons
+  fetchBtn.addEventListener("click", () => loadCollection({ forceRefresh: true }));
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => loadCollection({ forceRefresh: true }));
+  }
 
   // Spin Modal Triggers
   openSpinModalBtn.addEventListener("click", () => {
-    const items = getCurrentlyFilteredItems();
-    if (!items || items.length === 0) {
+    if (!filteredItems || filteredItems.length === 0) {
       alert("No games available to spin! Please fetch a collection first.");
       return;
     }
-    currentWheelItems = items;
-    wheelSubheading.textContent = `Spinning among ${items.length} selected games`;
+    currentWheelItems = filteredItems;
+    wheelSubheading.textContent = `Spinning among ${filteredItems.length} selected games`;
     winnerCard.classList.add("hidden");
     spinModal.classList.remove("hidden");
     drawWheel();
@@ -275,16 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (msg) progressMessage.textContent = msg;
   }
 
-  function getCurrentlyFilteredItems() {
-    if (!collectionData || !collectionData.items) return [];
-    const query = searchInput.value.trim().toLowerCase();
-    if (!query) return collectionData.items;
-    return collectionData.items.filter((i) =>
-      i.name.toLowerCase().includes(query)
-    );
-  }
-
-  // Draw Graphical Wheel on HTML5 Canvas using Seasonal Palette
+  // Draw Graphical Wheel on HTML5 Canvas
   function drawWheel() {
     if (!ctx || currentWheelItems.length === 0) return;
 
@@ -426,10 +422,191 @@ document.addEventListener("DOMContentLoaded", () => {
     winnerCard.classList.remove("hidden");
   }
 
-  // Fetch collection from server API using SSE Stream
-  function loadCollection() {
-    const username = usernameInput.value.trim() || "bwobbones";
+  // Client-side Player Count Matcher
+  function matchesPlayerCountsClient(item, selectedCounts) {
+    if (!selectedCounts || selectedCounts.length === 0) return true;
 
+    let nums = [];
+    if (item.bestAt && item.bestAt !== "(Undetermined)") {
+      nums = item.bestAt.match(/\d+/g)?.map(Number) || [];
+    } else {
+      const minP = item.minPlayers || 1;
+      const maxP = item.maxPlayers || 1;
+      for (let p = minP; p <= maxP; p++) nums.push(p);
+    }
+
+    for (const opt of selectedCounts) {
+      const cleanOpt = String(opt).toLowerCase().trim();
+      if (cleanOpt === "2p" && nums.includes(2)) return true;
+      if (cleanOpt === "3p" && nums.includes(3)) return true;
+      if (cleanOpt === "4p" && nums.includes(4)) return true;
+      if (cleanOpt === "5p" && nums.includes(5)) return true;
+      if (cleanOpt === "6+p" && nums.some((n) => n >= 6)) return true;
+    }
+
+    return false;
+  }
+
+  // Client-side Truncated Compact List Generator (1500 chars, Unique & Identifiable)
+  function generateCompactListClient(items, maxLength = 1500) {
+    if (!items || items.length === 0) return "";
+
+    function cleanTitle(fullName) {
+      let name = fullName.replace(/\([^)]*\)/g, "").trim();
+      return name.replace(/\s+/g, "");
+    }
+
+    const fullNames = items.map((i) => cleanTitle(i.name));
+
+    function disambiguate(list) {
+      const counts = new Map();
+      list.forEach((i) => counts.set(i, (counts.get(i) || 0) + 1));
+      const res = [...list];
+
+      const dupKeys = new Set(
+        Array.from(counts.entries())
+          .filter(([, c]) => c > 1)
+          .map(([k]) => k)
+      );
+
+      if (dupKeys.size === 0) return res;
+
+      for (const k of dupKeys) {
+        const idxs = [];
+        res.forEach((v, idx) => {
+          if (v === k) idxs.push(idx);
+        });
+
+        idxs.forEach((idx) => {
+          const fn = fullNames[idx];
+          let diff = fn.slice(k.length).replace(/[^a-zA-Z0-9]/g, "");
+          if (diff.length > 0) {
+            res[idx] = k + diff.slice(0, 2);
+          } else {
+            res[idx] = k + (idxs.indexOf(idx) + 1);
+          }
+        });
+      }
+
+      const finalCounts = new Map();
+      res.forEach((i) => finalCounts.set(i, (finalCounts.get(i) || 0) + 1));
+      const seen = new Map();
+
+      return res.map((i) => {
+        if (finalCounts.get(i) > 1) {
+          const c = (seen.get(i) || 0) + 1;
+          seen.set(i, c);
+          return `${i}${c}`;
+        }
+        return i;
+      });
+    }
+
+    let candidateNames = disambiguate(fullNames);
+    let candidate = candidateNames.join(",");
+    if (candidate.length <= maxLength) return candidate;
+
+    const maxLen = Math.max(...fullNames.map((n) => n.length));
+
+    for (let K = maxLen; K >= 1; K--) {
+      let truncated = fullNames.map((n) => n.slice(0, K));
+      truncated = disambiguate(truncated);
+      candidate = truncated.join(",");
+      if (candidate.length <= maxLength) {
+        return candidate;
+      }
+    }
+
+    return candidateNames
+      .map((n, idx) => `${n.slice(0, 1)}${idx + 1}`)
+      .join(",")
+      .slice(0, maxLength);
+  }
+
+  // Instant Client-Side Query Filtering & Rendering
+  function applyClientFilters() {
+    if (!rawCollectionData || !rawCollectionData.items) return;
+
+    let items = [...rawCollectionData.items];
+    const selectedPlayerCounts = getSelectedPlayerCounts();
+
+    const isGold = (i) =>
+      i.averageRating !== null &&
+      i.averageRating >= 7.2 &&
+      i.usersRated !== null &&
+      i.usersRated > 300;
+
+    // 1. Filter by Preset Mode (gold, shit)
+    if (activeMode === "shit") {
+      items = items.filter(
+        (i) =>
+          i.averageRating !== null &&
+          i.averageRating <= 7.1 &&
+          matchesPlayerCountsClient(i, selectedPlayerCounts)
+      );
+    } else if (activeMode === "gold") {
+      items = items.filter(
+        (i) => isGold(i) && matchesPlayerCountsClient(i, selectedPlayerCounts)
+      );
+    } else {
+      // All Games mode: filter by selected player counts
+      items = items.filter((i) =>
+        matchesPlayerCountsClient(i, selectedPlayerCounts)
+      );
+    }
+
+    // 2. Filter by Search Query
+    const query = searchInput.value.trim().toLowerCase();
+    if (query) {
+      items = items.filter((i) => i.name.toLowerCase().includes(query));
+    }
+
+    // 3. Filter by Min Rating
+    if (minRatingInput.value) {
+      const minR = parseFloat(minRatingInput.value);
+      if (!isNaN(minR)) {
+        items = items.filter((i) => (i.averageRating ?? 0) >= minR);
+      }
+    }
+
+    filteredItems = items;
+
+    // Render Gold Stats Card
+    if (rawCollectionData.totalEligibleCount > 0) {
+      statsCard.classList.remove("hidden");
+      statsDetail.textContent = `${rawCollectionData.goldCount} / ${rawCollectionData.totalEligibleCount} Gold Games`;
+      statsPctBadge.textContent = `${rawCollectionData.goldPercentage}%`;
+    }
+
+    // Update Results Heading
+    const modeLabel = activeMode ? ` [preset: ${activeMode}]` : "";
+    resultsHeading.textContent = `Collection Results for ${rawCollectionData.username}${modeLabel}`;
+
+    renderTable();
+    compactListText.value = generateCompactListClient(filteredItems);
+    jsonText.textContent = JSON.stringify(filteredItems, null, 2);
+
+    resultsCard.classList.remove("hidden");
+  }
+
+  // Fetch collection from server API using SSE Stream
+  function loadCollection(options = {}) {
+    const { forceRefresh = false } = options;
+    const username = usernameInput.value.trim() || "bwobbones";
+    const includeExpansions = includeExpansionsInput.checked;
+
+    // If data is already loaded for this user & expansion setting, filter client-side instantly!
+    if (
+      !forceRefresh &&
+      rawCollectionData &&
+      loadedUsername === username &&
+      loadedIncludeExpansions === includeExpansions
+    ) {
+      applyClientFilters();
+      return;
+    }
+
+    // Close any previous SSE stream
     if (eventSource) {
       eventSource.close();
       eventSource = null;
@@ -447,20 +624,14 @@ document.addEventListener("DOMContentLoaded", () => {
     updateProgressUI(0, "Step 1/3", `Connecting to BGG for user "${username}"...`);
 
     fetchIcon.classList.add("animate-spin");
+    if (refreshIcon) refreshIcon.classList.add("animate-spin");
     fetchBtn.disabled = true;
-
-    const selectedPlayerCounts = getSelectedPlayerCounts();
+    if (refreshBtn) refreshBtn.disabled = true;
 
     const params = new URLSearchParams({
       username,
-      includeExpansions: includeExpansionsInput.checked ? "true" : "false",
+      includeExpansions: includeExpansions ? "true" : "false",
     });
-
-    if (activeMode) params.append("mode", activeMode);
-    if (minRatingInput.value) params.append("minRating", minRatingInput.value);
-    if (selectedPlayerCounts.length > 0) {
-      params.append("playerCounts", selectedPlayerCounts.join(","));
-    }
 
     eventSource = new EventSource(`/api/collection/stream?${params.toString()}`);
 
@@ -494,39 +665,25 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error(payload.error || "Failed to load collection");
         }
 
-        collectionData = payload.data;
+        rawCollectionData = payload.data;
+        loadedUsername = username;
+        loadedIncludeExpansions = includeExpansions;
 
         // Finish Progress UI
         updateProgressUI(100, "Done!", "Collection loaded successfully!");
 
         setTimeout(() => {
           progressBox.classList.add("hidden");
-
-          // Always Render Gold Stats Card whenever collection data is returned
-          if (collectionData && collectionData.totalEligibleCount > 0) {
-            statsCard.classList.remove("hidden");
-            statsDetail.textContent = `${collectionData.goldCount} / ${collectionData.totalEligibleCount} Gold Games`;
-            statsPctBadge.textContent = `${collectionData.goldPercentage}%`;
-          } else {
-            statsCard.classList.add("hidden");
-          }
-
-          // Update Results Heading & Render Table
-          const modeLabel = activeMode ? ` [preset: ${activeMode}]` : "";
-          resultsHeading.textContent = `Collection Results for ${collectionData.username}${modeLabel}`;
-
-          renderTable();
-          compactListText.value = collectionData.compactList || "";
-          jsonText.textContent = JSON.stringify(collectionData.items, null, 2);
-
-          resultsCard.classList.remove("hidden");
-        }, 500);
+          applyClientFilters();
+        }, 400);
 
       } catch (err) {
         handleFetchError(err.message);
       } finally {
         fetchIcon.classList.remove("animate-spin");
+        if (refreshIcon) refreshIcon.classList.remove("animate-spin");
         fetchBtn.disabled = false;
+        if (refreshBtn) refreshBtn.disabled = false;
       }
     });
 
@@ -550,33 +707,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     progressBox.classList.add("hidden");
     fetchIcon.classList.remove("animate-spin");
+    if (refreshIcon) refreshIcon.classList.remove("animate-spin");
     fetchBtn.disabled = false;
+    if (refreshBtn) refreshBtn.disabled = false;
     alert(`Error: ${msg}`);
   }
 
   function renderTable() {
-    if (!collectionData || !collectionData.items) {
+    if (!filteredItems) {
       tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
       return;
     }
 
-    const query = searchInput.value.trim().toLowerCase();
-    let displayItems = collectionData.items;
+    resultsSummary.textContent = `Showing ${filteredItems.length} matching items (Total in collection: ${rawCollectionData?.totalItems || 0})`;
 
-    if (query) {
-      displayItems = displayItems.filter((i) =>
-        i.name.toLowerCase().includes(query)
-      );
-    }
-
-    resultsSummary.textContent = `Showing ${displayItems.length} of ${collectionData.returnedCount} matching items (Total in collection: ${collectionData.totalItems})`;
-
-    if (displayItems.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No games found matching search query.</td></tr>`;
+    if (filteredItems.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
       return;
     }
 
-    tableBody.innerHTML = displayItems
+    tableBody.innerHTML = filteredItems
       .map((item, idx) => {
         const img = item.thumbnail
           ? `<img src="${item.thumbnail}" alt="${item.name}" class="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-xs">`

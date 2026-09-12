@@ -215,9 +215,15 @@
         </div>
 
         <div class="flex items-center gap-3">
+          <!-- Refresh Collection Button at top of list -->
+          <button id="refreshBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs transition flex items-center gap-2 text-xs">
+            <i class="fa-solid fa-arrows-rotate text-amber-500" id="refreshIcon"></i>
+            <span>Refresh Collection</span>
+          </button>
+
           <!-- SPIN! Button -->
-          <button id="openSpinModalBtn" class="bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-black px-5 py-2.5 rounded-xl shadow-lg shadow-rose-500/20 transition transform active:scale-95 flex items-center gap-2 text-sm">
-            <i class="fa-solid fa-arrows-spin text-base"></i>
+          <button id="openSpinModalBtn" class="bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-black px-4 py-2 rounded-xl shadow-lg shadow-rose-500/20 transition transform active:scale-95 flex items-center gap-2 text-xs">
+            <i class="fa-solid fa-arrows-spin text-sm"></i>
             <span>SPIN! 🎲</span>
           </button>
 
