@@ -220,6 +220,41 @@ document.addEventListener("DOMContentLoaded", () => {
   searchInput.addEventListener("input", () => applyClientFilters());
   minRatingInput.addEventListener("input", () => applyClientFilters());
 
+  // Reload collection on username change or Enter key press
+  let usernameDebounceTimer = null;
+  usernameInput.addEventListener("input", () => {
+    clearTimeout(usernameDebounceTimer);
+    const newUsername = usernameInput.value.trim();
+    if (newUsername && newUsername !== loadedUsername) {
+      usernameDebounceTimer = setTimeout(() => {
+        loadCollection({ forceRefresh: true });
+      }, 750);
+    }
+  });
+
+  usernameInput.addEventListener("change", () => {
+    clearTimeout(usernameDebounceTimer);
+    const newUsername = usernameInput.value.trim();
+    if (newUsername && newUsername !== loadedUsername) {
+      loadCollection({ forceRefresh: true });
+    }
+  });
+
+  usernameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      clearTimeout(usernameDebounceTimer);
+      const newUsername = usernameInput.value.trim();
+      if (newUsername && newUsername !== loadedUsername) {
+        loadCollection({ forceRefresh: true });
+      }
+    }
+  });
+
+  // Reload when "Include Expansions" checkbox toggles
+  includeExpansionsInput.addEventListener("change", () => {
+    loadCollection({ forceRefresh: true });
+  });
+
   // Fetch / Refresh Buttons
   fetchBtn.addEventListener("click", () => loadCollection({ forceRefresh: true }));
   if (refreshBtn) {
