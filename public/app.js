@@ -224,7 +224,6 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.font = numSlices > 40 ? "bold 9px sans-serif" : "bold 11px sans-serif";
 
       let title = currentWheelItems[i].name;
-      // Truncate name for slice display
       const maxTextLen = numSlices > 30 ? 12 : 18;
       if (title.length > maxTextLen) {
         title = title.substring(0, maxTextLen - 2) + "..";
@@ -261,10 +260,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const numSlices = currentWheelItems.length;
     const arc = (2 * Math.PI) / numSlices;
 
-    // Random total rotation: 5 full turns + random target slice
     const extraRotations = 5 + Math.floor(Math.random() * 4);
     const randomSlice = Math.floor(Math.random() * numSlices);
-    // Align target slice to top pointer (-Math.PI / 2)
     const targetAngle =
       extraRotations * 2 * Math.PI +
       (3 * Math.PI) / 2 -
@@ -272,7 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const startAngle = currentAngle;
     const angleDelta = targetAngle - startAngle;
-    const duration = 4500; // 4.5 seconds
+    const duration = 4500;
     const startTimestamp = performance.now();
 
     function easeOutCubic(t) {
@@ -294,9 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
         doSpinBtn.disabled = false;
         doSpinBtn.classList.remove("opacity-50", "cursor-not-allowed");
 
-        // Determine Winner Slice Index at Top Pointer (-PI / 2 or 1.5 * PI)
         const normalizedAngle = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-        // Pointer is at 1.5 * Math.PI (270 deg / top)
         let winningIndex = Math.floor(
           ((1.5 * Math.PI - normalizedAngle + 2 * Math.PI) % (2 * Math.PI)) / arc
         );
@@ -310,7 +305,6 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(animate);
   }
 
-  // Display Winner Announcement Card
   function announceWinner(winner) {
     if (!winner) return;
 
@@ -333,7 +327,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadCollection() {
     const username = usernameInput.value.trim() || "bwobbones";
 
-    // Close any previous SSE stream
     if (eventSource) {
       eventSource.close();
       eventSource = null;
@@ -402,11 +395,13 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           progressBox.classList.add("hidden");
 
-          // Render Gold Stats Card if active
-          if (activeMode === "allgold" || collectionData.goldCount > 0) {
+          // Render Gold Stats Card ONLY when in 'allgold' or 'gold' preset mode
+          if (activeMode === "allgold" || activeMode === "gold") {
             statsCard.classList.remove("hidden");
             statsDetail.textContent = `${collectionData.goldCount} / ${collectionData.totalEligibleCount} Gold Games`;
             statsPctBadge.textContent = `${collectionData.goldPercentage}%`;
+          } else {
+            statsCard.classList.add("hidden");
           }
 
           // Update Results Heading & Render Table
