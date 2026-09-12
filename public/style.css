@@ -102,6 +102,51 @@ header {
   color: var(--badge-text) !important;
 }
 
+/* Explicit styling for Player Count Multiselect Pills */
+.pc-pill {
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pc-pill.active-pc {
+  background-color: #f59e0b !important;
+  border-color: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4) !important;
+}
+
+.pc-pill:not(.active-pc) {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+.pc-pill:not(.active-pc):hover {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Explicit styling for Preset Buttons */
+.preset-btn.active-preset {
+  background-color: #f59e0b !important;
+  border-color: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4) !important;
+}
+
+.preset-btn:not(.active-preset) {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+.preset-btn:not(.active-preset):hover {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

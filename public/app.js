@@ -93,11 +93,9 @@ document.addEventListener("DOMContentLoaded", () => {
     pcPills.forEach((pill) => {
       const pc = pill.dataset.pc;
       if (counts.includes(pc)) {
-        pill.classList.add("active-pc", "border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
-        pill.classList.remove("border-slate-200", "bg-slate-50", "text-slate-600");
+        pill.classList.add("active-pc");
       } else {
-        pill.classList.remove("active-pc", "border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
-        pill.classList.add("border-slate-200", "bg-slate-50", "text-slate-600");
+        pill.classList.remove("active-pc");
       }
     });
   }
@@ -106,14 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
   pcPills.forEach((pill) => {
     pill.addEventListener("click", () => {
       pill.classList.toggle("active-pc");
-      if (pill.classList.contains("active-pc")) {
-        pill.classList.add("border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
-        pill.classList.remove("border-slate-200", "bg-slate-50", "text-slate-600");
-      } else {
-        pill.classList.remove("border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
-        pill.classList.add("border-slate-200", "bg-slate-50", "text-slate-600");
-      }
-
       applyClientFilters();
     });
   });
@@ -159,23 +149,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle Preset Button Clicks (Client-side instant filter)
   presetButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      presetButtons.forEach((b) => {
-        b.classList.remove(
-          "border-amber-500",
-          "bg-amber-500",
-          "text-white",
-          "shadow-sm"
-        );
-        b.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
-      });
-
-      btn.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
-      btn.classList.add(
-        "border-amber-500",
-        "bg-amber-500",
-        "text-white",
-        "shadow-sm"
-      );
+      presetButtons.forEach((b) => b.classList.remove("active-preset"));
+      btn.classList.add("active-preset");
 
       activeMode = btn.dataset.mode || "";
 
