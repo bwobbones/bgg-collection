@@ -10,13 +10,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+<body class="text-slate-100 min-h-screen font-sans">
 
   <!-- Navigation / Header -->
-  <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 shadow-lg">
+  <header class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700 py-4 px-6 shadow-lg sticky top-0 z-40">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <div class="bg-amber-500 text-slate-900 p-2.5 rounded-xl shadow-md font-bold text-xl">
+        <div id="brandIcon" class="bg-amber-500 text-slate-900 p-2.5 rounded-xl shadow-md font-bold text-xl">
           <i class="fa-solid me-1 fa-dice"></i> BGG
         </div>
         <div>
@@ -24,9 +24,29 @@
           <p class="text-xs text-slate-400">Search, filter, and analyze BGG collections</p>
         </div>
       </div>
-      <div class="text-xs text-slate-400 flex items-center gap-2">
-        <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        API Connected
+
+      <!-- Right Header Actions: Seasonal Selector Badge -->
+      <div class="flex items-center gap-3">
+        <!-- Season Selector Pill -->
+        <div class="flex items-center bg-slate-900/80 border border-slate-700 rounded-xl p-1 text-xs font-semibold">
+          <button data-season-select="winter" title="Winter Theme" class="season-select-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-sky-300 transition">
+            ❄️
+          </button>
+          <button data-season-select="spring" title="Spring Theme" class="season-select-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-emerald-300 transition">
+            🌸
+          </button>
+          <button data-season-select="summer" title="Summer Theme" class="season-select-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-amber-300 transition">
+            ☀️
+          </button>
+          <button data-season-select="autumn" title="Autumn Theme" class="season-select-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-orange-400 transition">
+            🍁
+          </button>
+        </div>
+
+        <div id="seasonBadge" class="season-badge px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 shadow">
+          <span id="seasonIcon">☀️</span>
+          <span id="seasonLabel">Summer Theme</span>
+        </div>
       </div>
     </div>
   </header>
@@ -34,7 +54,7 @@
   <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
 
     <!-- Control Panel -->
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-6">
+    <div class="season-card bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-6">
       
       <!-- Top Row: Username + Preset Modes -->
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
@@ -45,7 +65,7 @@
           <div class="relative">
             <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
             <input type="text" id="usernameInput" value="bwobbones"
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+              class="season-input w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
           </div>
         </div>
 
@@ -83,7 +103,7 @@
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
             <input type="text" id="searchInput" placeholder="Search titles..."
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+              class="season-input w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
           </div>
         </div>
 
@@ -92,7 +112,7 @@
             Min Avg Rating
           </label>
           <input type="number" id="minRatingInput" step="0.1" min="0" max="10" placeholder="e.g. 7.0"
-            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+            class="season-input w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
         </div>
 
         <div class="md:col-span-3">
@@ -100,7 +120,7 @@
             Best At Player Count
           </label>
           <input type="text" id="bestAtInput" placeholder="e.g. 3 or 2"
-            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+            class="season-input w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
         </div>
 
         <div class="md:col-span-2 flex items-center pt-5">
@@ -122,11 +142,11 @@
     </div>
 
     <!-- Progress & Live Status Box -->
-    <div id="progressBox" class="hidden bg-slate-800 border border-amber-500/40 rounded-2xl p-5 shadow-xl space-y-3">
+    <div id="progressBox" class="hidden season-card bg-slate-800 border border-amber-500/40 rounded-2xl p-5 shadow-xl space-y-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <i class="fa-solid fa-spinner animate-spin text-amber-400 text-lg"></i>
-          <span id="progressStepBadge" class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-lg text-xs font-bold">
+          <span id="progressStepBadge" class="season-badge border px-2.5 py-0.5 rounded-lg text-xs font-bold">
             Step 1/3
           </span>
           <span id="progressMessage" class="text-sm font-semibold text-slate-200">
@@ -139,13 +159,13 @@
       </div>
 
       <!-- Progress Bar Container -->
-      <div class="w-full bg-slate-900 rounded-full h-2.5 border border-slate-700 overflow-hidden">
+      <div class="season-input w-full bg-slate-900 rounded-full h-2.5 border border-slate-700 overflow-hidden">
         <div id="progressBar" class="bg-amber-500 h-2.5 rounded-full transition-all duration-300 w-0"></div>
       </div>
     </div>
 
     <!-- Gold Summary Stats Card -->
-    <div id="statsCard" class="hidden bg-gradient-to-r from-amber-500/10 via-slate-800 to-slate-800 border border-amber-500/30 rounded-2xl p-5 shadow-lg">
+    <div id="statsCard" class="hidden season-card bg-slate-800 border border-amber-500/30 rounded-2xl p-5 shadow-lg">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-4">
           <div class="p-3 bg-amber-500/20 text-amber-400 rounded-2xl text-2xl">
@@ -166,7 +186,7 @@
     </div>
 
     <!-- Results Container -->
-    <div id="resultsCard" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-4">
+    <div id="resultsCard" class="hidden season-card bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-4">
       
       <!-- Results Header & Action Controls -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
@@ -183,7 +203,7 @@
           </button>
 
           <!-- View Tabs -->
-          <div class="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700 text-xs font-semibold">
+          <div class="season-input flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700 text-xs font-semibold">
             <button data-tab="table" class="tab-btn px-3 py-1.5 rounded-lg text-white bg-slate-800 shadow">
               <i class="fa-solid fa-table text-amber-400 mr-1"></i> Table
             </button>
@@ -218,7 +238,7 @@
 
       <!-- Tab Content 2: Compact List View -->
       <div id="tabCompact" class="tab-content hidden space-y-3">
-        <div class="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-700 text-xs">
+        <div class="season-input flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-700 text-xs">
           <span class="text-slate-400">1500-Character Truncated Comma-Separated List (Unique & Identifiable)</span>
           <button id="copyListBtn" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-semibold">
             <i class="fa-solid fa-copy"></i>
@@ -226,12 +246,12 @@
           </button>
         </div>
         <textarea id="compactListText" readonly rows="8"
-          class="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 font-mono text-xs text-amber-300 focus:outline-none resize-none select-all"></textarea>
+          class="season-input w-full bg-slate-950 border border-slate-700 rounded-xl p-4 font-mono text-xs text-amber-300 focus:outline-none resize-none select-all"></textarea>
       </div>
 
       <!-- Tab Content 3: JSON View -->
       <div id="tabJson" class="tab-content hidden">
-        <pre id="jsonText" class="bg-slate-950 border border-slate-700 rounded-xl p-4 font-mono text-xs text-emerald-400 overflow-x-auto max-h-[600px]"></pre>
+        <pre id="jsonText" class="season-input bg-slate-950 border border-slate-700 rounded-xl p-4 font-mono text-xs text-emerald-400 overflow-x-auto max-h-[600px]"></pre>
       </div>
 
     </div>
@@ -240,10 +260,10 @@
 
   <!-- SPIN WHEEL MODAL OVERLAY -->
   <div id="spinModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-2xl max-w-xl w-full relative flex flex-col items-center space-y-5 animate-fade-in">
+    <div class="season-card bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-2xl max-w-xl w-full relative flex flex-col items-center space-y-5 animate-fade-in">
       
       <!-- Modal Close Button -->
-      <button id="closeSpinModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2.5 rounded-full border border-slate-700 transition">
+      <button id="closeSpinModalBtn" class="season-input absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2.5 rounded-full border border-slate-700 transition">
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
 
@@ -252,18 +272,16 @@
         <h2 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-rose-400">
           Wheel of Fortune 🎲
         </h2>
-        <p id="wheelSubheading" class="text-xs text-slate-400 mt-0.5">Spinning among 190 selected games</p>
+        <p id="wheelSubheading" class="text-xs text-slate-400 mt-0.5">Spinning among selected games</p>
       </div>
 
       <!-- Graphical Wheel Canvas Container -->
       <div class="relative flex items-center justify-center py-2">
-        <!-- Top Stopper Pointer Indicator -->
         <div class="absolute -top-3 left-1/2 -translate-x-1/2 z-10 text-rose-500 text-3xl filter drop-shadow">
           <i class="fa-solid fa-caret-down"></i>
         </div>
 
-        <!-- Wheel HTML5 Canvas -->
-        <canvas id="wheelCanvas" width="420" height="420" class="rounded-full shadow-2xl border-4 border-slate-700 bg-slate-900"></canvas>
+        <canvas id="wheelCanvas" width="420" height="420" class="season-input rounded-full shadow-2xl border-4 border-slate-700 bg-slate-900"></canvas>
       </div>
 
       <!-- Spin Wheel Action Button -->
@@ -273,13 +291,13 @@
       </button>
 
       <!-- Winner Announcement Overlay Card -->
-      <div id="winnerCard" class="hidden w-full bg-slate-900 border-2 border-amber-500/50 rounded-2xl p-4 shadow-xl flex items-center gap-4 animate-bounce-short">
+      <div id="winnerCard" class="hidden season-input w-full bg-slate-900 border-2 border-amber-500/50 rounded-2xl p-4 shadow-xl flex items-center gap-4 animate-bounce-short">
         <div id="winnerImgContainer" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-800 border border-slate-700 flex-shrink-0 flex items-center justify-center">
           <i class="fa-solid fa-trophy text-amber-400 text-2xl"></i>
         </div>
         <div class="flex-grow min-w-0">
           <div class="flex items-center gap-2 mb-1">
-            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+            <span class="season-badge text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border">
               🎉 Selected Game
             </span>
           </div>

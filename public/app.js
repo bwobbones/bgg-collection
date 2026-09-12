@@ -4,6 +4,22 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeTab = "table";
   let eventSource = null;
 
+  // Seasonal Theme Setup
+  let currentSeason = detectCurrentSeason();
+  const seasonBadges = {
+    winter: { icon: "❄️", label: "Winter Theme" },
+    spring: { icon: "🌸", label: "Spring Theme" },
+    summer: { icon: "☀️", label: "Summer Theme" },
+    autumn: { icon: "🍁", label: "Autumn Theme" },
+  };
+
+  const seasonalWheelPalettes = {
+    winter: ["#cff4fc", "#e0e7ff", "#dbeafe", "#bae6fd", "#f3e8ff", "#e0f2fe"],
+    spring: ["#d1fae5", "#fce7f3", "#fef3c7", "#dbeafe", "#ccfbf1", "#f3e8ff"],
+    summer: ["#fef3c7", "#ffedd5", "#ffe4e6", "#cff4fc", "#fce7f3", "#d1fae5"],
+    autumn: ["#ffedd5", "#fef3c7", "#fecdd3", "#fed7aa", "#fef08a", "#fde68a"],
+  };
+
   // Wheel State
   let wheelCanvas = document.getElementById("wheelCanvas");
   let ctx = wheelCanvas ? wheelCanvas.getContext("2d") : null;
@@ -37,6 +53,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const jsonText = document.getElementById("jsonText");
   const copyListBtn = document.getElementById("copyListBtn");
 
+  const seasonIcon = document.getElementById("seasonIcon");
+  const seasonLabel = document.getElementById("seasonLabel");
+  const seasonSelectBtns = document.querySelectorAll(".season-select-btn");
+
   const presetButtons = document.querySelectorAll(".preset-btn");
   const tabButtons = document.querySelectorAll(".tab-btn");
   const tabContents = document.querySelectorAll(".tab-content");
@@ -53,19 +73,43 @@ document.addEventListener("DOMContentLoaded", () => {
   const winnerRating = document.getElementById("winnerRating");
   const winnerImgContainer = document.getElementById("winnerImgContainer");
 
-  // Lighter, Cheerful Pastel Color Palette
-  const wheelColors = [
-    "#fef3c7", // Pastel Amber
-    "#d1fae5", // Pastel Emerald
-    "#e0e7ff", // Pastel Indigo
-    "#ffe4e6", // Pastel Rose
-    "#cff4fc", // Pastel Cyan
-    "#f3e8ff", // Pastel Purple
-    "#dbeafe", // Pastel Blue
-    "#ffedd5", // Pastel Orange
-    "#ccfbf1", // Pastel Teal
-    "#fce7f3", // Pastel Pink
-  ];
+  // Detect season based on current month (Northern Hemisphere)
+  function detectCurrentSeason() {
+    const month = new Date().getMonth(); // 0 = Jan, 11 = Dec
+    if (month === 11 || month === 0 || month === 1) return "winter";
+    if (month >= 2 && month <= 4) return "spring";
+    if (month >= 5 && month <= 7) return "summer";
+    return "autumn";
+  }
+
+  // Apply Season Theme to HTML Body and Badges
+  function applySeasonTheme(season) {
+    currentSeason = season;
+    document.documentElement.setAttribute("data-season", season);
+
+    const info = seasonBadges[season] || seasonBadges.summer;
+    if (seasonIcon) seasonIcon.textContent = info.icon;
+    if (seasonLabel) seasonLabel.textContent = info.label;
+
+    seasonSelectBtns.forEach((btn) => {
+      if (btn.dataset.seasonSelect === season) {
+        btn.classList.add("bg-slate-800", "shadow");
+      } else {
+        btn.classList.remove("bg-slate-800", "shadow");
+      }
+    });
+
+    if (spinModal && !spinModal.classList.contains("hidden")) {
+      drawWheel();
+    }
+  }
+
+  // Bind Season Selector Buttons
+  seasonSelectBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applySeasonTheme(btn.dataset.seasonSelect);
+    });
+  });
 
   // Handle Preset Button Clicks
   presetButtons.forEach((btn) => {
@@ -191,10 +235,11 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // Draw Graphical Wheel on HTML5 Canvas
+  // Draw Graphical Wheel on HTML5 Canvas using Seasonal Palette
   function drawWheel() {
     if (!ctx || currentWheelItems.length === 0) return;
 
+    const palette = seasonalWheelPalettes[currentSeason] || seasonalWheelPalettes.summer;
     const numSlices = currentWheelItems.length;
     const arc = (2 * Math.PI) / numSlices;
     const centerX = wheelCanvas.width / 2;
@@ -207,11 +252,11 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let i = 0; i < numSlices; i++) {
       const angle = currentAngle + i * arc;
 
-      // Fill Light Pastel Slice
+      // Fill Seasonal Slice
       ctx.beginPath();
       ctx.arc(centerX, centerY, outerRadius, angle, angle + arc);
       ctx.lineTo(centerX, centerY);
-      ctx.fillStyle = wheelColors[i % wheelColors.length];
+      ctx.fillStyle = palette[i % palette.length];
       ctx.fill();
       ctx.strokeStyle = "#334155";
       ctx.lineWidth = 1.5;
@@ -223,7 +268,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.rotate(angle + arc / 2);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "#0f172a"; // Dark crisp text on pastel background
+      ctx.fillStyle = "#0f172a";
       ctx.font =
         numSlices > 50
           ? "bold 8px sans-serif"
@@ -237,7 +282,6 @@ document.addEventListener("DOMContentLoaded", () => {
         title = title.substring(0, maxTextLen - 2) + "..";
       }
 
-      // Draw text centered at the midpoint radius between inner hub and outer edge
       const midRadius = (innerRadius + outerRadius) / 2 + 10;
       ctx.fillText(title, midRadius, 0);
       ctx.restore();
@@ -502,6 +546,9 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .join("");
   }
+
+  // Apply initial seasonal theme
+  applySeasonTheme(currentSeason);
 
   // Load initial collection on page load
   loadCollection();

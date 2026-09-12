@@ -7,6 +7,8 @@
   --border-color: #334155;
   --accent-main: #f59e0b;
   --accent-hover: #fbbf24;
+  --gradient-from: #f59e0b;
+  --gradient-to: #f43f5e;
   --badge-bg: rgba(245, 158, 11, 0.15);
   --badge-border: rgba(245, 158, 11, 0.3);
   --badge-text: #fbbf24;
@@ -19,6 +21,8 @@
   --border-color: #3a506b;
   --accent-main: #38bdf8;
   --accent-hover: #7dd3fc;
+  --gradient-from: #0284c7;
+  --gradient-to: #38bdf8;
   --badge-bg: rgba(56, 189, 248, 0.15);
   --badge-border: rgba(56, 189, 248, 0.3);
   --badge-text: #7dd3fc;
@@ -31,6 +35,8 @@
   --border-color: #047857;
   --accent-main: #34d399;
   --accent-hover: #6ee7b7;
+  --gradient-from: #10b981;
+  --gradient-to: #f472b6;
   --badge-bg: rgba(52, 211, 153, 0.15);
   --badge-border: rgba(52, 211, 153, 0.3);
   --badge-text: #6ee7b7;
@@ -43,6 +49,8 @@
   --border-color: #44403c;
   --accent-main: #ea580c;
   --accent-hover: #f97316;
+  --gradient-from: #d97706;
+  --gradient-to: #ea580c;
   --badge-bg: rgba(234, 88, 12, 0.15);
   --badge-border: rgba(234, 88, 12, 0.3);
   --badge-text: #fb923c;
@@ -62,6 +70,14 @@ body {
 .season-input {
   background-color: var(--bg-input) !important;
   border-color: var(--border-color) !important;
+}
+
+.season-accent-bg {
+  background-color: var(--accent-main) !important;
+}
+
+.season-accent-text {
+  color: var(--accent-main) !important;
 }
 
 .season-badge {
