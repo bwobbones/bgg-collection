@@ -62,8 +62,8 @@ Open `http://localhost:3000` in your browser.
 ### Usage Plan / Modes
 
 - **`node index shit`**: All owned games with average rating **<= 7.1** that are **"Best At" 3+ players**.
-- **`node index gold`**: All owned games with average rating **>= 7.2** that are **"Best At" 3+ players**.
-- **`node index allgold`**: All owned games with average rating **>= 7.2** for **ALL player counts** (includes 2p games).
+- **`node index gold`**: All owned games with average rating **>= 7.2** AND **> 300 ratings** that are **"Best At" 3+ players**.
+- **`node index allgold`**: All owned games with average rating **>= 7.2** AND **> 300 ratings** for **ALL player counts**.
 - **`node index 2p`**: All owned games that are **"Best At" 2 players**.
 
 ### Basic Command
