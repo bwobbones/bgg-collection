@@ -4,6 +4,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeTab = "table";
   let eventSource = null;
 
+  // Wheel State
+  let wheelCanvas = document.getElementById("wheelCanvas");
+  let ctx = wheelCanvas ? wheelCanvas.getContext("2d") : null;
+  let currentAngle = 0;
+  let isSpinning = false;
+  let currentWheelItems = [];
+
   const usernameInput = document.getElementById("usernameInput");
   const searchInput = document.getElementById("searchInput");
   const minRatingInput = document.getElementById("minRatingInput");
@@ -33,6 +40,31 @@ document.addEventListener("DOMContentLoaded", () => {
   const presetButtons = document.querySelectorAll(".preset-btn");
   const tabButtons = document.querySelectorAll(".tab-btn");
   const tabContents = document.querySelectorAll(".tab-content");
+
+  // Spin Modal Elements
+  const openSpinModalBtn = document.getElementById("openSpinModalBtn");
+  const closeSpinModalBtn = document.getElementById("closeSpinModalBtn");
+  const spinModal = document.getElementById("spinModal");
+  const wheelSubheading = document.getElementById("wheelSubheading");
+  const doSpinBtn = document.getElementById("doSpinBtn");
+  const winnerCard = document.getElementById("winnerCard");
+  const winnerTitle = document.getElementById("winnerTitle");
+  const winnerBestAt = document.getElementById("winnerBestAt");
+  const winnerRating = document.getElementById("winnerRating");
+  const winnerImgContainer = document.getElementById("winnerImgContainer");
+
+  const wheelColors = [
+    "#f59e0b", // Amber
+    "#10b981", // Emerald
+    "#6366f1", // Indigo
+    "#f43f5e", // Rose
+    "#06b6d4", // Cyan
+    "#8b5cf6", // Purple
+    "#ec4899", // Pink
+    "#3b82f6", // Blue
+    "#14b8a6", // Teal
+    "#a855f7", // Violet
+  ];
 
   // Handle Preset Button Clicks
   presetButtons.forEach((btn) => {
@@ -94,6 +126,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   fetchBtn.addEventListener("click", () => loadCollection());
 
+  // Spin Modal Triggers
+  openSpinModalBtn.addEventListener("click", () => {
+    const items = getCurrentlyFilteredItems();
+    if (!items || items.length === 0) {
+      alert("No games available to spin! Please fetch a collection first.");
+      return;
+    }
+    currentWheelItems = items;
+    wheelSubheading.textContent = `Spinning among ${items.length} selected games`;
+    winnerCard.classList.add("hidden");
+    spinModal.classList.remove("hidden");
+    drawWheel();
+  });
+
+  closeSpinModalBtn.addEventListener("click", () => {
+    if (isSpinning) return;
+    spinModal.classList.add("hidden");
+  });
+
+  doSpinBtn.addEventListener("click", () => {
+    if (isSpinning || currentWheelItems.length === 0) return;
+    spinWheel();
+  });
+
   function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
@@ -123,6 +179,154 @@ document.addEventListener("DOMContentLoaded", () => {
     progressPercentageText.textContent = `${safePct}%`;
     if (stepName) progressStepBadge.textContent = stepName;
     if (msg) progressMessage.textContent = msg;
+  }
+
+  function getCurrentlyFilteredItems() {
+    if (!collectionData || !collectionData.items) return [];
+    const query = searchInput.value.trim().toLowerCase();
+    if (!query) return collectionData.items;
+    return collectionData.items.filter((i) =>
+      i.name.toLowerCase().includes(query)
+    );
+  }
+
+  // Draw Graphical Wheel on HTML5 Canvas
+  function drawWheel() {
+    if (!ctx || currentWheelItems.length === 0) return;
+
+    const numSlices = currentWheelItems.length;
+    const arc = (2 * Math.PI) / numSlices;
+    const centerX = wheelCanvas.width / 2;
+    const centerY = wheelCanvas.height / 2;
+    const outerRadius = centerX - 8;
+
+    ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
+
+    for (let i = 0; i < numSlices; i++) {
+      const angle = currentAngle + i * arc;
+
+      // Fill Slice
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, outerRadius, angle, angle + arc);
+      ctx.lineTo(centerX, centerY);
+      ctx.fillStyle = wheelColors[i % wheelColors.length];
+      ctx.fill();
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Render Slice Title Text
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(angle + arc / 2);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#0f172a";
+      ctx.font = numSlices > 40 ? "bold 9px sans-serif" : "bold 11px sans-serif";
+
+      let title = currentWheelItems[i].name;
+      // Truncate name for slice display
+      const maxTextLen = numSlices > 30 ? 12 : 18;
+      if (title.length > maxTextLen) {
+        title = title.substring(0, maxTextLen - 2) + "..";
+      }
+
+      ctx.fillText(title, outerRadius - 15, 4);
+      ctx.restore();
+    }
+
+    // Center Hub Circle
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 32, 0, 2 * Math.PI);
+    ctx.fillStyle = "#0f172a";
+    ctx.fill();
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Center Dice Text / Icon
+    ctx.fillStyle = "#f59e0b";
+    ctx.font = "bold 16px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🎲", centerX, centerY);
+  }
+
+  // Spin Wheel Physics Animation
+  function spinWheel() {
+    isSpinning = true;
+    doSpinBtn.disabled = true;
+    doSpinBtn.classList.add("opacity-50", "cursor-not-allowed");
+    winnerCard.classList.add("hidden");
+
+    const numSlices = currentWheelItems.length;
+    const arc = (2 * Math.PI) / numSlices;
+
+    // Random total rotation: 5 full turns + random target slice
+    const extraRotations = 5 + Math.floor(Math.random() * 4);
+    const randomSlice = Math.floor(Math.random() * numSlices);
+    // Align target slice to top pointer (-Math.PI / 2)
+    const targetAngle =
+      extraRotations * 2 * Math.PI +
+      (3 * Math.PI) / 2 -
+      (randomSlice * arc + arc / 2);
+
+    const startAngle = currentAngle;
+    const angleDelta = targetAngle - startAngle;
+    const duration = 4500; // 4.5 seconds
+    const startTimestamp = performance.now();
+
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function animate(now) {
+      const elapsed = now - startTimestamp;
+      const progress = Math.min(1, elapsed / duration);
+      const easedProgress = easeOutCubic(progress);
+
+      currentAngle = startAngle + angleDelta * easedProgress;
+      drawWheel();
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        isSpinning = false;
+        doSpinBtn.disabled = false;
+        doSpinBtn.classList.remove("opacity-50", "cursor-not-allowed");
+
+        // Determine Winner Slice Index at Top Pointer (-PI / 2 or 1.5 * PI)
+        const normalizedAngle = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        // Pointer is at 1.5 * Math.PI (270 deg / top)
+        let winningIndex = Math.floor(
+          ((1.5 * Math.PI - normalizedAngle + 2 * Math.PI) % (2 * Math.PI)) / arc
+        );
+        winningIndex = (winningIndex + numSlices) % numSlices;
+
+        const winner = currentWheelItems[winningIndex];
+        announceWinner(winner);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  // Display Winner Announcement Card
+  function announceWinner(winner) {
+    if (!winner) return;
+
+    winnerTitle.textContent = winner.name;
+    winnerBestAt.textContent = winner.bestAt ? `Best At: ${winner.bestAt}` : "Player Count: N/A";
+    winnerRating.textContent = winner.averageRating
+      ? `Avg: ${winner.averageRating.toFixed(1)}`
+      : "Avg: N/A";
+
+    if (winner.thumbnail) {
+      winnerImgContainer.innerHTML = `<img src="${winner.thumbnail}" alt="${winner.name}" class="w-full h-full object-cover">`;
+    } else {
+      winnerImgContainer.innerHTML = `<i class="fa-solid fa-trophy text-amber-400 text-2xl"></i>`;
+    }
+
+    winnerCard.classList.remove("hidden");
   }
 
   // Fetch collection from server API using SSE Stream
@@ -168,7 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (payload.step === "collection" || payload.step === "queue") {
           stepName = "Step 1/3";
-        } else if (payload.step === "things_start" || payload.step === "things") {
+        } else if (payload.step === "things_start" || payload.step === "things" || payload.step === "ratelimit") {
           stepName = "Step 2/3";
         } else if (payload.step === "filtering" || payload.step === "formatting") {
           stepName = "Step 3/3";
