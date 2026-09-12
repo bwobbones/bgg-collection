@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
   const includeExclusionsInput = document.getElementById("includeExclusionsInput");
   const exclusionsCountBadge = document.getElementById("exclusionsCountBadge");
+  const exclusionsOptionWrapper = document.getElementById("exclusionsOptionWrapper");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
   const refreshBtn = document.getElementById("refreshBtn");
@@ -692,8 +693,21 @@ document.addEventListener("DOMContentLoaded", () => {
         loadedIncludeExpansions = includeExpansions;
         loadedIncludeExclusions = includeExclusions;
 
-        if (exclusionsCountBadge && rawCollectionData.excludedCount !== undefined) {
-          exclusionsCountBadge.textContent = `${rawCollectionData.excludedCount} excluded`;
+        // Manage User Exclusions visibility: only display if this user has exclusions configured
+        const hasUserExclusions =
+          rawCollectionData.userExclusionsCount !== undefined &&
+          rawCollectionData.userExclusionsCount > 0;
+
+        if (exclusionsOptionWrapper) {
+          if (hasUserExclusions) {
+            exclusionsOptionWrapper.classList.remove("hidden");
+            if (exclusionsCountBadge) {
+              exclusionsCountBadge.textContent = `${rawCollectionData.userExclusionsCount} excluded`;
+            }
+          } else {
+            exclusionsOptionWrapper.classList.add("hidden");
+            if (includeExclusionsInput) includeExclusionsInput.checked = false;
+          }
         }
 
         // Finish Progress UI
