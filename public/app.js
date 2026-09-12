@@ -53,17 +53,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const winnerRating = document.getElementById("winnerRating");
   const winnerImgContainer = document.getElementById("winnerImgContainer");
 
+  // Lighter, Cheerful Pastel Color Palette
   const wheelColors = [
-    "#f59e0b", // Amber
-    "#10b981", // Emerald
-    "#6366f1", // Indigo
-    "#f43f5e", // Rose
-    "#06b6d4", // Cyan
-    "#8b5cf6", // Purple
-    "#ec4899", // Pink
-    "#3b82f6", // Blue
-    "#14b8a6", // Teal
-    "#a855f7", // Violet
+    "#fef3c7", // Pastel Amber
+    "#d1fae5", // Pastel Emerald
+    "#e0e7ff", // Pastel Indigo
+    "#ffe4e6", // Pastel Rose
+    "#cff4fc", // Pastel Cyan
+    "#f3e8ff", // Pastel Purple
+    "#dbeafe", // Pastel Blue
+    "#ffedd5", // Pastel Orange
+    "#ccfbf1", // Pastel Teal
+    "#fce7f3", // Pastel Pink
   ];
 
   // Handle Preset Button Clicks
@@ -199,43 +200,52 @@ document.addEventListener("DOMContentLoaded", () => {
     const centerX = wheelCanvas.width / 2;
     const centerY = wheelCanvas.height / 2;
     const outerRadius = centerX - 8;
+    const innerRadius = 32;
 
     ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
 
     for (let i = 0; i < numSlices; i++) {
       const angle = currentAngle + i * arc;
 
-      // Fill Slice
+      // Fill Light Pastel Slice
       ctx.beginPath();
       ctx.arc(centerX, centerY, outerRadius, angle, angle + arc);
       ctx.lineTo(centerX, centerY);
       ctx.fillStyle = wheelColors[i % wheelColors.length];
       ctx.fill();
-      ctx.strokeStyle = "#1e293b";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Render Slice Title Text
+      // Render Centered Title Text along Slice Angle
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(angle + arc / 2);
-      ctx.textAlign = "right";
-      ctx.fillStyle = "#0f172a";
-      ctx.font = numSlices > 40 ? "bold 9px sans-serif" : "bold 11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#0f172a"; // Dark crisp text on pastel background
+      ctx.font =
+        numSlices > 50
+          ? "bold 8px sans-serif"
+          : numSlices > 25
+          ? "bold 10px sans-serif"
+          : "bold 12px sans-serif";
 
       let title = currentWheelItems[i].name;
-      const maxTextLen = numSlices > 30 ? 12 : 18;
+      const maxTextLen = numSlices > 40 ? 10 : numSlices > 20 ? 14 : 20;
       if (title.length > maxTextLen) {
         title = title.substring(0, maxTextLen - 2) + "..";
       }
 
-      ctx.fillText(title, outerRadius - 15, 4);
+      // Draw text centered at the midpoint radius between inner hub and outer edge
+      const midRadius = (innerRadius + outerRadius) / 2 + 10;
+      ctx.fillText(title, midRadius, 0);
       ctx.restore();
     }
 
     // Center Hub Circle
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 32, 0, 2 * Math.PI);
+    ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
     ctx.fillStyle = "#0f172a";
     ctx.fill();
     ctx.strokeStyle = "#f59e0b";
