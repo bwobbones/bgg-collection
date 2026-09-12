@@ -89,11 +89,11 @@ document.addEventListener("DOMContentLoaded", () => {
     pcPills.forEach((pill) => {
       const pc = pill.dataset.pc;
       if (counts.includes(pc)) {
-        pill.classList.add("active-pc", "border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
-        pill.classList.remove("border-slate-700", "bg-slate-900", "text-slate-400");
+        pill.classList.add("active-pc", "border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
+        pill.classList.remove("border-slate-200", "bg-slate-50", "text-slate-600");
       } else {
-        pill.classList.remove("active-pc", "border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
-        pill.classList.add("border-slate-700", "bg-slate-900", "text-slate-400");
+        pill.classList.remove("active-pc", "border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
+        pill.classList.add("border-slate-200", "bg-slate-50", "text-slate-600");
       }
     });
   }
@@ -103,14 +103,13 @@ document.addEventListener("DOMContentLoaded", () => {
     pill.addEventListener("click", () => {
       pill.classList.toggle("active-pc");
       if (pill.classList.contains("active-pc")) {
-        pill.classList.add("border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
-        pill.classList.remove("border-slate-700", "bg-slate-900", "text-slate-400");
+        pill.classList.add("border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
+        pill.classList.remove("border-slate-200", "bg-slate-50", "text-slate-600");
       } else {
-        pill.classList.remove("border-amber-500/50", "bg-amber-500/10", "text-amber-300", "shadow");
-        pill.classList.add("border-slate-700", "bg-slate-900", "text-slate-400");
+        pill.classList.remove("border-amber-500", "bg-amber-500", "text-white", "shadow-sm");
+        pill.classList.add("border-slate-200", "bg-slate-50", "text-slate-600");
       }
 
-      // Trigger automatic re-query on change
       loadCollection();
     });
   });
@@ -135,9 +134,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     seasonSelectBtns.forEach((btn) => {
       if (btn.dataset.seasonSelect === season) {
-        btn.classList.add("bg-slate-800", "shadow");
+        btn.classList.add("bg-white", "shadow-sm", "text-slate-800");
       } else {
-        btn.classList.remove("bg-slate-800", "shadow");
+        btn.classList.remove("bg-white", "shadow-sm", "text-slate-800");
       }
     });
 
@@ -158,26 +157,26 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => {
       presetButtons.forEach((b) => {
         b.classList.remove(
-          "border-amber-500/50",
-          "bg-amber-500/10",
-          "text-amber-300"
+          "border-amber-500",
+          "bg-amber-500",
+          "text-white",
+          "shadow-sm"
         );
-        b.classList.add("border-slate-700", "bg-slate-900", "text-slate-300");
+        b.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
       });
 
-      btn.classList.remove("border-slate-700", "bg-slate-900", "text-slate-300");
+      btn.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
       btn.classList.add(
-        "border-amber-500/50",
-        "bg-amber-500/10",
-        "text-amber-300"
+        "border-amber-500",
+        "bg-amber-500",
+        "text-white",
+        "shadow-sm"
       );
 
       activeMode = btn.dataset.mode || "";
 
       // Sync player count pills to preset mode
-      if (activeMode === "2p") {
-        setSelectedPlayerCounts(["2p"]);
-      } else if (activeMode === "gold" || activeMode === "shit") {
+      if (activeMode === "gold" || activeMode === "shit") {
         setSelectedPlayerCounts(["3p", "4p", "5p", "6+p"]);
       }
 
@@ -189,12 +188,12 @@ document.addEventListener("DOMContentLoaded", () => {
   tabButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       tabButtons.forEach((b) => {
-        b.classList.remove("bg-slate-800", "text-white", "shadow");
-        b.classList.add("text-slate-400");
+        b.classList.remove("bg-white", "text-slate-800", "shadow-sm");
+        b.classList.add("text-slate-500");
       });
 
-      btn.classList.remove("text-slate-400");
-      btn.classList.add("bg-slate-800", "text-white", "shadow");
+      btn.classList.remove("text-slate-500");
+      btn.classList.add("bg-white", "text-slate-800", "shadow-sm");
 
       activeTab = btn.dataset.tab;
       tabContents.forEach((c) => c.classList.add("hidden"));
@@ -251,21 +250,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function formatRatingBadge(rating) {
     if (rating === null || rating === undefined || isNaN(rating)) {
-      return `<span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-500">N/A</span>`;
+      return `<span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-500">N/A</span>`;
     }
     const val = parseFloat(rating);
     const text = val.toFixed(1);
 
     if (val >= 8.0) {
-      return `<span class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">${text}</span>`;
+      return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-xs">${text}</span>`;
     }
     if (val >= 7.2) {
-      return `<span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${text}</span>`;
+      return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-100 text-amber-800 border border-amber-300 shadow-xs">${text}</span>`;
     }
     if (val >= 6.0) {
-      return `<span class="px-2 py-0.5 rounded text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">${text}</span>`;
+      return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-yellow-100 text-yellow-800 border border-yellow-300 shadow-xs">${text}</span>`;
     }
-    return `<span class="px-2 py-0.5 rounded text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">${text}</span>`;
+    return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-rose-100 text-rose-700 border border-rose-300 shadow-xs">${text}</span>`;
   }
 
   function updateProgressUI(pct, stepName, msg) {
@@ -308,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.lineTo(centerX, centerY);
       ctx.fillStyle = palette[i % palette.length];
       ctx.fill();
-      ctx.strokeStyle = "#334155";
+      ctx.strokeStyle = "#cbd5e1";
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
@@ -421,7 +420,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (winner.thumbnail) {
       winnerImgContainer.innerHTML = `<img src="${winner.thumbnail}" alt="${winner.name}" class="w-full h-full object-cover">`;
     } else {
-      winnerImgContainer.innerHTML = `<i class="fa-solid fa-trophy text-amber-400 text-2xl"></i>`;
+      winnerImgContainer.innerHTML = `<i class="fa-solid fa-trophy text-amber-500 text-2xl"></i>`;
     }
 
     winnerCard.classList.remove("hidden");
@@ -503,8 +502,8 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           progressBox.classList.add("hidden");
 
-          // Render Gold Stats Card ONLY when in 'allgold' or 'gold' preset mode
-          if (activeMode === "allgold" || activeMode === "gold") {
+          // Always Render Gold Stats Card whenever collection data is returned
+          if (collectionData && collectionData.totalEligibleCount > 0) {
             statsCard.classList.remove("hidden");
             statsDetail.textContent = `${collectionData.goldCount} / ${collectionData.totalEligibleCount} Gold Games`;
             statsPctBadge.textContent = `${collectionData.goldPercentage}%`;
@@ -580,21 +579,21 @@ document.addEventListener("DOMContentLoaded", () => {
     tableBody.innerHTML = displayItems
       .map((item, idx) => {
         const img = item.thumbnail
-          ? `<img src="${item.thumbnail}" alt="${item.name}" class="w-10 h-10 object-cover rounded-lg border border-slate-700">`
-          : `<div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-slate-600"><i class="fa-solid fa-dice-d6"></i></div>`;
+          ? `<img src="${item.thumbnail}" alt="${item.name}" class="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-xs">`
+          : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400"><i class="fa-solid fa-dice-d6"></i></div>`;
 
         const bestAtBadge = item.bestAt
-          ? `<span class="px-2 py-1 rounded-md text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"><i class="fa-solid fa-users text-cyan-400 text-[10px] mr-1"></i>${item.bestAt}</span>`
-          : `<span class="text-slate-600">—</span>`;
+          ? `<span class="px-2.5 py-1 rounded-md text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200"><i class="fa-solid fa-users text-cyan-600 text-[10px] mr-1"></i>${item.bestAt}</span>`
+          : `<span class="text-slate-400">—</span>`;
 
         return `
-          <tr class="hover:bg-slate-700/30 transition">
-            <td class="py-3 px-4 text-center text-xs text-slate-500 font-mono">${idx + 1}</td>
-            <td class="py-3 px-4">${img}</td>
-            <td class="py-3 px-4 font-bold text-white">${item.name}</td>
-            <td class="py-3 px-4">${bestAtBadge}</td>
-            <td class="py-3 px-4 text-center">${formatRatingBadge(item.averageRating)}</td>
-            <td class="py-3 px-4 text-center font-mono font-semibold text-slate-300">${item.numPlays || 0}</td>
+          <tr class="hover:bg-slate-50 transition">
+            <td class="py-3.5 px-4 text-center text-xs text-slate-400 font-mono font-bold">${idx + 1}</td>
+            <td class="py-3.5 px-4">${img}</td>
+            <td class="py-3.5 px-4 font-bold text-slate-900">${item.name}</td>
+            <td class="py-3.5 px-4">${bestAtBadge}</td>
+            <td class="py-3.5 px-4 text-center">${formatRatingBadge(item.averageRating)}</td>
+            <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-700">${item.numPlays || 0}</td>
           </tr>
         `;
       })

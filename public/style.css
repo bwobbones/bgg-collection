@@ -1,87 +1,99 @@
-/* Seasonal CSS Custom Properties */
+/* Bright, Uplifting, Cheerful Seasonal Custom Properties */
 :root,
 [data-season="summer"] {
-  --bg-main: #0f172a;
-  --bg-card: #1e293b;
-  --bg-input: #0f172a;
-  --border-color: #334155;
+  --bg-main: #fefce8;
+  --bg-card: #ffffff;
+  --bg-input: #fef3c7;
+  --border-color: #fde047;
+  --text-main: #1e293b;
+  --text-muted: #475569;
   --accent-main: #f59e0b;
-  --accent-hover: #fbbf24;
-  --badge-bg: rgba(245, 158, 11, 0.15);
-  --badge-border: rgba(245, 158, 11, 0.3);
-  --badge-text: #fbbf24;
+  --accent-hover: #d97706;
+  --badge-bg: #fef3c7;
+  --badge-border: #fcd34d;
+  --badge-text: #b45309;
   --brand-bg: #f59e0b;
-  --brand-text: #0f172a;
+  --brand-text: #ffffff;
 }
 
 [data-season="winter"] {
-  --bg-main: #0b132b;
-  --bg-card: #1c2541;
-  --bg-input: #0b132b;
-  --border-color: #3a506b;
-  --accent-main: #38bdf8;
-  --accent-hover: #7dd3fc;
-  --badge-bg: rgba(56, 189, 248, 0.15);
-  --badge-border: rgba(56, 189, 248, 0.3);
-  --badge-text: #7dd3fc;
-  --brand-bg: #38bdf8;
-  --brand-text: #0b132b;
+  --bg-main: #f0f9ff;
+  --bg-card: #ffffff;
+  --bg-input: #e0f2fe;
+  --border-color: #7dd3fc;
+  --text-main: #0f172a;
+  --text-muted: #334155;
+  --accent-main: #0284c7;
+  --accent-hover: #0369a1;
+  --badge-bg: #e0f2fe;
+  --badge-border: #38bdf8;
+  --badge-text: #0369a1;
+  --brand-bg: #0284c7;
+  --brand-text: #ffffff;
 }
 
 [data-season="spring"] {
-  --bg-main: #022c22;
-  --bg-card: #064e3b;
-  --bg-input: #022c22;
-  --border-color: #047857;
-  --accent-main: #34d399;
-  --accent-hover: #6ee7b7;
-  --badge-bg: rgba(52, 211, 153, 0.15);
-  --badge-border: rgba(52, 211, 153, 0.3);
-  --badge-text: #6ee7b7;
-  --brand-bg: #34d399;
-  --brand-text: #022c22;
+  --bg-main: #f0fdf4;
+  --bg-card: #ffffff;
+  --bg-input: #d1fae5;
+  --border-color: #6ee7b7;
+  --text-main: #064e3b;
+  --text-muted: #334155;
+  --accent-main: #10b981;
+  --accent-hover: #059669;
+  --badge-bg: #d1fae5;
+  --badge-border: #34d399;
+  --badge-text: #047857;
+  --brand-bg: #10b981;
+  --brand-text: #ffffff;
 }
 
 [data-season="autumn"] {
-  --bg-main: #1c1917;
-  --bg-card: #292524;
-  --bg-input: #0c0a09;
-  --border-color: #44403c;
+  --bg-main: #fff7ed;
+  --bg-card: #ffffff;
+  --bg-input: #ffedd5;
+  --border-color: #fdba74;
+  --text-main: #431407;
+  --text-muted: #57534e;
   --accent-main: #ea580c;
-  --accent-hover: #f97316;
-  --badge-bg: rgba(234, 88, 12, 0.15);
-  --badge-border: rgba(234, 88, 12, 0.3);
-  --badge-text: #fb923c;
+  --accent-hover: #c2410c;
+  --badge-bg: #ffedd5;
+  --badge-border: #fb923c;
+  --badge-text: #c2410c;
   --brand-bg: #ea580c;
-  --brand-text: #1c1917;
+  --brand-text: #ffffff;
 }
 
 body {
   background-color: var(--bg-main) !important;
-  transition: background-color 0.5s ease;
+  color: var(--text-main) !important;
+  transition: all 0.4s ease;
 }
 
 header {
   background-color: var(--bg-card) !important;
   border-color: var(--border-color) !important;
-  transition: all 0.5s ease;
+  box-shadow: 0 4px 20px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.4s ease;
 }
 
 .brand-icon {
   background-color: var(--brand-bg) !important;
   color: var(--brand-text) !important;
-  transition: all 0.5s ease;
+  transition: all 0.4s ease;
 }
 
 .season-card {
   background-color: var(--bg-card) !important;
   border-color: var(--border-color) !important;
-  transition: all 0.5s ease;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.05);
+  transition: all 0.4s ease;
 }
 
 .season-input {
-  background-color: var(--bg-input) !important;
+  background-color: var(--bg-card) !important;
   border-color: var(--border-color) !important;
+  color: var(--text-main) !important;
 }
 
 .season-badge {
@@ -97,7 +109,7 @@ header {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-input);
+  background: var(--bg-main);
 }
 
 ::-webkit-scrollbar-thumb {
