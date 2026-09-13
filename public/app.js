@@ -772,7 +772,13 @@ document.addEventListener("DOMContentLoaded", () => {
           updateProgressUI(40, "Step 2/3", `Fetching collection data via standard API...`);
           try {
             const fallbackRes = await fetch(`/api/collection?${params.toString()}`);
-            const json = await fallbackRes.json();
+            const text = await fallbackRes.text();
+            let json;
+            try {
+              json = JSON.parse(text);
+            } catch (jsonErr) {
+              throw new Error(`Server returned HTTP ${fallbackRes.status} (${fallbackRes.statusText}): ${text.slice(0, 300)}`);
+            }
 
             if (!json.success || !json.data) {
               throw new Error(json.error || "Failed to fetch collection from BGG");
@@ -781,7 +787,7 @@ document.addEventListener("DOMContentLoaded", () => {
             handleSuccessData(json.data);
             return;
           } catch (fallbackErr) {
-            handleFetchError(fallbackErr.message, { details: fallbackErr });
+            handleFetchError(fallbackErr.message, { details: { message: fallbackErr.message, stack: fallbackErr.stack } });
             return;
           }
         }

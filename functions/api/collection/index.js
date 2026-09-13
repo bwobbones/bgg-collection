@@ -79,7 +79,12 @@ export async function onRequestGet(context) {
 
     while (attempt < maxRetries) {
       attempt++;
-      const res = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${encodeURIComponent(username)}&own=1&stats=1`, { headers });
+      const res = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${encodeURIComponent(username)}&own=1&stats=1`, {
+        headers: {
+          ...headers,
+          "User-Agent": "bgg-collection-app/1.0",
+        },
+      });
       const text = await res.text();
 
       if (res.status === 202 || text.includes("Your request for this collection has been accepted")) {
@@ -145,7 +150,12 @@ export async function onRequestGet(context) {
       let success = false;
       while (retry < 3 && !success) {
         try {
-          const tRes = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${chunk.join(",")}&stats=1`, { headers });
+          const tRes = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${chunk.join(",")}&stats=1`, {
+            headers: {
+              ...headers,
+              "User-Agent": "bgg-collection-app/1.0",
+            },
+          });
           if (tRes.status === 429) {
             await new Promise(r => setTimeout(r, 2000));
             retry++;
