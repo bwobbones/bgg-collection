@@ -631,8 +631,8 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsCard.classList.remove("hidden");
   }
 
-  // Fetch collection from server API using SSE Stream
-  function loadCollection(options = {}) {
+  // Fetch collection from server API (supports SSE stream with automatic fetch fallback)
+  async function loadCollection(options = {}) {
     const { forceRefresh = false } = options;
     const username = usernameInput.value.trim() || "bwobbones";
     const includeExpansions = includeExpansionsInput.checked;
@@ -679,90 +679,127 @@ document.addEventListener("DOMContentLoaded", () => {
       includeExclusions: includeExclusions ? "true" : "false",
     });
 
-    eventSource = new EventSource(`/api/collection/stream?${params.toString()}`);
+    let sseReceivedAnyData = false;
 
-    eventSource.addEventListener("progress", (e) => {
-      try {
-        const payload = JSON.parse(e.data);
-        const pct = payload.percentage || 10;
-        let stepName = "Step 1/3";
+    // Helper to process completed data
+    const handleSuccessData = (payloadData) => {
+      rawCollectionData = payloadData;
+      loadedUsername = username;
+      loadedIncludeExpansions = includeExpansions;
+      loadedIncludeExclusions = includeExclusions;
 
-        if (payload.step === "collection" || payload.step === "queue") {
-          stepName = "Step 1/3";
-        } else if (payload.step === "things_start" || payload.step === "things" || payload.step === "ratelimit") {
-          stepName = "Step 2/3";
-        } else if (payload.step === "filtering" || payload.step === "formatting") {
-          stepName = "Step 3/3";
+      // Manage User Exclusions visibility
+      const hasUserExclusions =
+        rawCollectionData.userExclusionsCount !== undefined &&
+        rawCollectionData.userExclusionsCount > 0;
+
+      if (exclusionsOptionWrapper) {
+        if (hasUserExclusions) {
+          exclusionsOptionWrapper.classList.remove("hidden");
+          if (exclusionsCountBadge) {
+            exclusionsCountBadge.textContent = `${rawCollectionData.userExclusionsCount} excluded`;
+          }
+        } else {
+          exclusionsOptionWrapper.classList.add("hidden");
+          if (includeExclusionsInput) includeExclusionsInput.checked = false;
         }
-
-        updateProgressUI(pct, stepName, payload.message);
-      } catch (err) {
-        console.error("Progress parse error:", err);
       }
-    });
 
-    eventSource.addEventListener("complete", (e) => {
-      try {
-        const payload = JSON.parse(e.data);
-        eventSource.close();
-        eventSource = null;
+      // Finish Progress UI
+      updateProgressUI(100, "Done!", "Collection loaded successfully!");
 
-        if (!payload.success || !payload.data) {
-          throw new Error(payload.error || "Failed to load collection");
+      setTimeout(() => {
+        progressBox.classList.add("hidden");
+        applyClientFilters();
+      }, 400);
+
+      fetchIcon.classList.remove("animate-spin");
+      if (refreshIcon) refreshIcon.classList.remove("animate-spin");
+      fetchBtn.disabled = false;
+      if (refreshBtn) refreshBtn.disabled = false;
+    };
+
+    // Attempt 1: Connect via Server-Sent Events (SSE) stream
+    try {
+      eventSource = new EventSource(`/api/collection/stream?${params.toString()}`);
+
+      eventSource.addEventListener("progress", (e) => {
+        sseReceivedAnyData = true;
+        try {
+          const payload = JSON.parse(e.data);
+          const pct = payload.percentage || 10;
+          let stepName = "Step 1/3";
+
+          if (payload.step === "collection" || payload.step === "queue") {
+            stepName = "Step 1/3";
+          } else if (payload.step === "things_start" || payload.step === "things" || payload.step === "ratelimit") {
+            stepName = "Step 2/3";
+          } else if (payload.step === "filtering" || payload.step === "formatting") {
+            stepName = "Step 3/3";
+          }
+
+          updateProgressUI(pct, stepName, payload.message);
+        } catch (err) {
+          console.error("Progress parse error:", err);
+        }
+      });
+
+      eventSource.addEventListener("complete", (e) => {
+        sseReceivedAnyData = true;
+        try {
+          const payload = JSON.parse(e.data);
+          eventSource.close();
+          eventSource = null;
+
+          if (!payload.success || !payload.data) {
+            throw new Error(payload.error || "Failed to load collection");
+          }
+
+          handleSuccessData(payload.data);
+        } catch (err) {
+          handleFetchError(err.message);
+        }
+      });
+
+      eventSource.addEventListener("error", async (e) => {
+        // If SSE failed immediately (e.g. streaming buffered or unsupported on CDN), fallback to standard JSON fetch!
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
         }
 
-        rawCollectionData = payload.data;
-        loadedUsername = username;
-        loadedIncludeExpansions = includeExpansions;
-        loadedIncludeExclusions = includeExclusions;
+        if (!sseReceivedAnyData) {
+          updateProgressUI(40, "Step 2/3", `Fetching collection data via standard API...`);
+          try {
+            const fallbackRes = await fetch(`/api/collection?${params.toString()}`);
+            const json = await fallbackRes.json();
 
-        // Manage User Exclusions visibility: only display if this user has exclusions configured
-        const hasUserExclusions =
-          rawCollectionData.userExclusionsCount !== undefined &&
-          rawCollectionData.userExclusionsCount > 0;
-
-        if (exclusionsOptionWrapper) {
-          if (hasUserExclusions) {
-            exclusionsOptionWrapper.classList.remove("hidden");
-            if (exclusionsCountBadge) {
-              exclusionsCountBadge.textContent = `${rawCollectionData.userExclusionsCount} excluded`;
+            if (!json.success || !json.data) {
+              throw new Error(json.error || "Failed to fetch collection from BGG");
             }
-          } else {
-            exclusionsOptionWrapper.classList.add("hidden");
-            if (includeExclusionsInput) includeExclusionsInput.checked = false;
+
+            handleSuccessData(json.data);
+            return;
+          } catch (fallbackErr) {
+            handleFetchError(fallbackErr.message, { details: fallbackErr });
+            return;
           }
         }
 
-        // Finish Progress UI
-        updateProgressUI(100, "Done!", "Collection loaded successfully!");
+        let errMsg = "Connection to server failed or timed out.";
+        let errPayload = null;
+        try {
+          if (e.data) {
+            errPayload = JSON.parse(e.data);
+            errMsg = errPayload.error || errMsg;
+          }
+        } catch (ex) {}
 
-        setTimeout(() => {
-          progressBox.classList.add("hidden");
-          applyClientFilters();
-        }, 400);
-
-      } catch (err) {
-        handleFetchError(err.message);
-      } finally {
-        fetchIcon.classList.remove("animate-spin");
-        if (refreshIcon) refreshIcon.classList.remove("animate-spin");
-        fetchBtn.disabled = false;
-        if (refreshBtn) refreshBtn.disabled = false;
-      }
-    });
-
-    eventSource.addEventListener("error", (e) => {
-      let errMsg = "Connection to server failed or timed out.";
-      let errPayload = null;
-      try {
-        if (e.data) {
-          errPayload = JSON.parse(e.data);
-          errMsg = errPayload.error || errMsg;
-        }
-      } catch (ex) {}
-
-      handleFetchError(errMsg, errPayload);
-    });
+        handleFetchError(errMsg, errPayload);
+      });
+    } catch (err) {
+      handleFetchError(err.message);
+    }
   }
 
   function handleFetchError(msg, payload = null) {
