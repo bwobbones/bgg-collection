@@ -721,7 +721,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Attempt 1: Connect via Server-Sent Events (SSE) stream
     try {
-      eventSource = new EventSource(`/api/collection/stream?${params.toString()}`);
+      eventSource = new EventSource(`/api/collection/stream?${params.toString()}`, {
+        withCredentials: true,
+      });
 
       eventSource.addEventListener("progress", (e) => {
         sseReceivedAnyData = true;
@@ -771,7 +773,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!sseReceivedAnyData) {
           updateProgressUI(40, "Step 2/3", `Fetching collection data via standard API...`);
           try {
-            const fallbackRes = await fetch(`/api/collection?${params.toString()}`);
+            const fallbackRes = await fetch(`/api/collection?${params.toString()}`, {
+              credentials: "include",
+            });
             const text = await fallbackRes.text();
             let json;
             try {
