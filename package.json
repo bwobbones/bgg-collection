@@ -11,7 +11,9 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "serve": "node server.js",
-    "cli": "node index.js"
+    "cli": "node index.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "keywords": [
     "boardgamegeek",
@@ -33,6 +35,7 @@
     "xml-js": "^1.6.11"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "wrangler": "^4.131.1"
   }
 }

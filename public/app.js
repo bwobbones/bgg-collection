@@ -48,6 +48,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const progressPercentageText = document.getElementById("progressPercentageText");
   const progressBar = document.getElementById("progressBar");
 
+  const errorBox = document.getElementById("errorBox");
+  const errorHeading = document.getElementById("errorHeading");
+  const errorMessage = document.getElementById("errorMessage");
+  const errorDetailsWrapper = document.getElementById("errorDetailsWrapper");
+  const errorDetailsText = document.getElementById("errorDetailsText");
+  const dismissErrorBtn = document.getElementById("dismissErrorBtn");
+
   const statsCard = document.getElementById("statsCard");
   const statsDetail = document.getElementById("statsDetail");
   const statsPctBadge = document.getElementById("statsPctBadge");
@@ -237,6 +244,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (includeExclusionsInput) {
     includeExclusionsInput.addEventListener("change", () => {
       loadCollection({ forceRefresh: true });
+    });
+  }
+
+  if (dismissErrorBtn) {
+    dismissErrorBtn.addEventListener("click", () => {
+      errorBox.classList.add("hidden");
     });
   }
 
@@ -643,7 +656,8 @@ document.addEventListener("DOMContentLoaded", () => {
       eventSource = null;
     }
 
-    // 1. Immediately remove current collection listing at start of new fetch
+    // 1. Immediately remove current collection listing and error box at start of new fetch
+    if (errorBox) errorBox.classList.add("hidden");
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
     tableBody.innerHTML = "";
@@ -738,19 +752,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     eventSource.addEventListener("error", (e) => {
-      let errMsg = "Connection to server failed";
+      let errMsg = "Connection to server failed or timed out.";
+      let errPayload = null;
       try {
         if (e.data) {
-          const payload = JSON.parse(e.data);
-          errMsg = payload.error || errMsg;
+          errPayload = JSON.parse(e.data);
+          errMsg = errPayload.error || errMsg;
         }
       } catch (ex) {}
 
-      handleFetchError(errMsg);
+      handleFetchError(errMsg, errPayload);
     });
   }
 
-  function handleFetchError(msg) {
+  function handleFetchError(msg, payload = null) {
     if (eventSource) {
       eventSource.close();
       eventSource = null;
@@ -760,7 +775,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (refreshIcon) refreshIcon.classList.remove("animate-spin");
     fetchBtn.disabled = false;
     if (refreshBtn) refreshBtn.disabled = false;
-    alert(`Error: ${msg}`);
+
+    // Show Red Error Status Box with full details
+    if (errorBox) {
+      errorMessage.textContent = msg;
+
+      let detailString = "";
+      if (payload && payload.details) {
+        detailString = JSON.stringify(payload.details, null, 2);
+      } else if (payload) {
+        detailString = JSON.stringify(payload, null, 2);
+      } else {
+        detailString = `Timestamp: ${new Date().toISOString()}\nError Message: ${msg}\nTarget: BoardGameGeek XML API2`;
+      }
+
+      if (errorDetailsText) {
+        errorDetailsText.textContent = detailString;
+      }
+      if (errorDetailsWrapper) {
+        errorDetailsWrapper.classList.remove("hidden");
+      }
+
+      errorBox.classList.remove("hidden");
+    }
   }
 
   function renderTable() {

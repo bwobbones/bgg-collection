@@ -134,7 +134,20 @@ app.get("/api/collection/stream", async (req, res) => {
     sendSSE("complete", { success: true, data: result });
     res.end();
   } catch (err) {
-    sendSSE("error", { success: false, error: err.message || "Failed to process collection" });
+    const errorPayload = {
+      success: false,
+      error: err.message || "Failed to process collection",
+      details: {
+        message: err.message,
+        name: err.name,
+        code: err.code,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        url: err.config?.url,
+        stack: err.stack,
+      },
+    };
+    sendSSE("error", errorPayload);
     res.end();
   }
 });
