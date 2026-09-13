@@ -59,7 +59,7 @@ export default {
 
     // 1. Diagnostic route: /api/test
     if (url.pathname === "/api/test") {
-      const token = env.BGG_TOKEN;
+      const token = env?.BGG_TOKEN || globalThis?.BGG_TOKEN || process?.env?.BGG_TOKEN || null;
       let bggStatus = null;
       let bggError = null;
       let sampleData = null;
@@ -85,9 +85,11 @@ export default {
           status: "worker_api_ok",
           hasToken: Boolean(token),
           tokenLength: token ? token.length : 0,
+          tokenPrefix: token ? `${token.slice(0, 4)}...` : null,
           bggStatus,
           bggError,
           sampleData,
+          envKeys: Object.keys(env || {}),
           url: request.url,
           timestamp: new Date().toISOString(),
         }, null, 2),
@@ -97,10 +99,8 @@ export default {
 
     // 2. Collection API route: /api/collection or /api/collection/stream
     if (url.pathname.startsWith("/api/collection")) {
-      const username = url.searchParams.get("username") || env.BGG_USERNAME || "bwobbones";
-      const includeExpansions = url.searchParams.get("includeExpansions") === "true";
-      const includeExclusions = url.searchParams.get("includeExclusions") === "true";
-      const token = env.BGG_TOKEN;
+      const token = env?.BGG_TOKEN || globalThis?.BGG_TOKEN || process?.env?.BGG_TOKEN || null;
+      const username = url.searchParams.get("username") || env?.BGG_USERNAME || "bwobbones";
 
       if (!token) {
         return new Response(
