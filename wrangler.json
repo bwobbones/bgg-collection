@@ -1,0 +1,12 @@
+{
+  "name": "bgg-collection",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-11",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
