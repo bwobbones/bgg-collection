@@ -101,6 +101,8 @@ export default {
     if (url.pathname.startsWith("/api/collection")) {
       const token = env?.BGG_TOKEN || globalThis?.BGG_TOKEN || process?.env?.BGG_TOKEN || null;
       const username = url.searchParams.get("username") || env?.BGG_USERNAME || "bwobbones";
+      const includeExpansions = url.searchParams.get("includeExpansions") === "true";
+      const includeExclusions = url.searchParams.get("includeExclusions") === "true";
 
       if (!token) {
         return new Response(
