@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const fetchIcon = document.getElementById("fetchIcon");
   const refreshBtn = document.getElementById("refreshBtn");
   const refreshIcon = document.getElementById("refreshIcon");
+  const logoutBtn = document.getElementById("logoutBtn");
 
   const progressBox = document.getElementById("progressBox");
   const progressStepBadge = document.getElementById("progressStepBadge");
@@ -243,6 +244,14 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchBtn.addEventListener("click", () => loadCollection({ forceRefresh: true }));
   if (refreshBtn) {
     refreshBtn.addEventListener("click", () => loadCollection({ forceRefresh: true }));
+  }
+
+  // Cloudflare Access Logout Handler
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      // Cloudflare Access revokes the active session cookie at /cdn-cgi/access/logout
+      window.location.href = `${window.location.origin}/cdn-cgi/access/logout`;
+    });
   }
 
   // Spin Modal Triggers

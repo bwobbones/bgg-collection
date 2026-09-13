@@ -71,6 +71,22 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, "public")));
 
 /**
+ * Cloudflare Access User Info & Logout Route
+ * Returns user email if passed through Cloudflare Access
+ */
+app.get("/api/auth/me", (req, res) => {
+  const email =
+    req.cfUser?.email ||
+    req.headers["cf-access-authenticated-user-email"] ||
+    null;
+
+  res.json({
+    authenticated: Boolean(email),
+    email,
+  });
+});
+
+/**
  * Server-Sent Events (SSE) Stream Route: GET /api/collection/stream
  */
 app.get("/api/collection/stream", async (req, res) => {
