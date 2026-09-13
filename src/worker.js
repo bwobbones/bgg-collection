@@ -1,28 +1,10 @@
 import convert from "xml-js";
+import { getExclusionsForUser, USER_EXCLUSIONS } from "../lib/exclusions.js";
 
 /**
  * Cloudflare Worker with Static Assets
  * Handles /api/collection, /api/test, and falls back to env.ASSETS for static files
  */
-
-const EXCLUSIONS = [
-  "Agricola (Revised Edition)",
-  "Excalibur",
-  "Flash Point: Legacy of Flame",
-  "GKR: Heavy Hitters",
-  "Glen More II: Chronicles",
-  "Moon Colony Bloodbath",
-  "Pictomania (Second Edition)",
-  "Psycho Raiders",
-  "Quacks",
-  "Ready Set Bet",
-  "Sagrada Artisans",
-  "Shikoku 1889",
-  "The Queen's Dilemma",
-  "Through Ice & Snow",
-  "Ticket to Ride: Europe",
-  "Wingspan",
-];
 
 function getAttr(node, attr) {
   return node?._attributes?.[attr] ?? null;
@@ -233,7 +215,7 @@ export default {
         }
 
         let baseGames = items.filter(i => i.status.own);
-        const userExcl = username.toLowerCase() === "bwobbones" ? EXCLUSIONS : [];
+        const userExcl = getExclusionsForUser(username);
         const exclSet = new Set(userExcl.map(e => e.toLowerCase().trim()));
         const excludedCount = baseGames.filter(i => exclSet.has(i.name.toLowerCase().trim())).length;
 
