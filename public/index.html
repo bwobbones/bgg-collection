@@ -169,11 +169,15 @@
             </label>
           </div>
 
-          <div id="exclusionsOptionWrapper" class="hidden flex items-center pt-4">
+          <div id="exclusionsOptionWrapper" class="hidden flex items-center gap-2 pt-4">
             <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
               <input type="checkbox" id="includeExclusionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
               <span>Include Excluded Games (<span id="exclusionsCountBadge" class="text-amber-600 font-black">0 excluded</span>)</span>
             </label>
+            <button id="openExclusionsModalBtn" title="Manage Exclusions for this user" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs">
+              <i class="fa-solid fa-gear text-amber-600"></i>
+              <span>Manage</span>
+            </button>
           </div>
         </div>
 
@@ -383,6 +387,78 @@
             <span>•</span>
             <span id="winnerRating" class="text-amber-600 font-bold">Avg: 8.2</span>
           </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MANAGE EXCLUSIONS MODAL -->
+  <div id="exclusionsModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl max-w-xl w-full relative flex flex-col space-y-4 animate-fade-in max-h-[90vh]">
+      
+      <!-- Close Button -->
+      <button id="closeExclusionsModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-800 bg-slate-100 p-2 rounded-full border border-slate-200 transition">
+        <i class="fa-solid fa-xmark text-base"></i>
+      </button>
+
+      <!-- Modal Header -->
+      <div class="border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="p-2 bg-amber-500 text-white rounded-xl shadow-xs">
+            <i class="fa-solid fa-ban"></i>
+          </div>
+          <div>
+            <h2 id="exclusionsModalTitle" class="text-lg font-black text-slate-900">
+              Manage Exclusions
+            </h2>
+            <p id="exclusionsModalSubtitle" class="text-xs text-slate-500 font-medium">
+              Synchronized permanently across all your devices
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add New Game Input -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">
+          Add Game to Exclusions
+        </label>
+        <div class="flex gap-2">
+          <input type="text" id="newExclusionInput" placeholder="Type game title to exclude..." list="collectionTitlesDatalist"
+            class="season-input flex-grow bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+          <datalist id="collectionTitlesDatalist"></datalist>
+          <button id="addExclusionBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm flex-shrink-0">
+            <i class="fa-solid fa-plus"></i>
+            <span>Add</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- List of Currently Excluded Games -->
+      <div class="space-y-1.5 flex-grow overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+          <span>Currently Excluded Games (<span id="modalExclusionsCount">0</span>)</span>
+          <button id="clearAllExclusionsBtn" class="text-[11px] text-rose-500 hover:text-rose-700 font-bold transition">
+            Clear All
+          </button>
+        </div>
+
+        <div id="modalExclusionsList" class="overflow-y-auto max-h-64 divide-y divide-slate-100 bg-slate-50 rounded-2xl border border-slate-200 p-2 space-y-1">
+          <!-- Dynamically populated exclusion items -->
+        </div>
+      </div>
+
+      <!-- Footer Action Buttons -->
+      <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+        <button id="resetDefaultExclusionsBtn" class="text-xs text-slate-500 hover:text-slate-800 font-semibold transition">
+          Reset to Code Defaults
+        </button>
+        <div class="flex items-center gap-2">
+          <button id="saveExclusionsBtn" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-5 py-2 rounded-xl text-xs transition shadow-md shadow-amber-500/20 flex items-center gap-1.5">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Save & Apply</span>
+          </button>
         </div>
       </div>
 

@@ -6,6 +6,12 @@
     "directory": "./public",
     "binding": "ASSETS"
   },
+  "kv_namespaces": [
+    {
+      "binding": "BGG_EXCLUSIONS_KV",
+      "id": "b547e61fc5944c9caa2ea7f6513e2e98"
+    }
+  ],
   "observability": {
     "enabled": true
   }

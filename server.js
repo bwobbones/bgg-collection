@@ -3,6 +3,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getProcessedCollection } from "./lib/collectionService.js";
+import { getExclusionsForUser } from "./lib/exclusions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -198,6 +199,25 @@ app.get("/api/collection", async (req, res) => {
       error: err.message || "Failed to process collection",
     });
   }
+});
+
+// In-memory persistent exclusions store for local development server
+const localExclusionsStore = new Map();
+
+/**
+ * Exclusions API Routes: GET & POST /api/exclusions
+ */
+app.get("/api/exclusions", (req, res) => {
+  const normUser = String(req.query.username || "bwobbones").trim().toLowerCase();
+  const exclusions = localExclusionsStore.get(normUser) || getExclusionsForUser(normUser);
+  res.json({ success: true, username: normUser, exclusions });
+});
+
+app.post("/api/exclusions", (req, res) => {
+  const normUser = String(req.body.username || "bwobbones").trim().toLowerCase();
+  const exclusions = Array.isArray(req.body.exclusions) ? req.body.exclusions : [];
+  localExclusionsStore.set(normUser, exclusions);
+  res.json({ success: true, username: normUser, exclusions, count: exclusions.length });
 });
 
 app.listen(PORT, () => {

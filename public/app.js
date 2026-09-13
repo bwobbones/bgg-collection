@@ -88,6 +88,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const winnerRating = document.getElementById("winnerRating");
   const winnerImgContainer = document.getElementById("winnerImgContainer");
 
+  // Manage Exclusions Modal Elements
+  const openExclusionsModalBtn = document.getElementById("openExclusionsModalBtn");
+  const closeExclusionsModalBtn = document.getElementById("closeExclusionsModalBtn");
+  const exclusionsModal = document.getElementById("exclusionsModal");
+  const exclusionsModalTitle = document.getElementById("exclusionsModalTitle");
+  const newExclusionInput = document.getElementById("newExclusionInput");
+  const collectionTitlesDatalist = document.getElementById("collectionTitlesDatalist");
+  const addExclusionBtn = document.getElementById("addExclusionBtn");
+  const modalExclusionsList = document.getElementById("modalExclusionsList");
+  const modalExclusionsCount = document.getElementById("modalExclusionsCount");
+  const clearAllExclusionsBtn = document.getElementById("clearAllExclusionsBtn");
+  const resetDefaultExclusionsBtn = document.getElementById("resetDefaultExclusionsBtn");
+  const saveExclusionsBtn = document.getElementById("saveExclusionsBtn");
+
+  // State for modal editing
+  let editingExclusions = [];
+
   // Get active selected player counts from pills
   function getSelectedPlayerCounts() {
     const selected = [];
@@ -264,6 +281,170 @@ document.addEventListener("DOMContentLoaded", () => {
     logoutBtn.addEventListener("click", () => {
       // Cloudflare Access revokes the active session cookie at /cdn-cgi/access/logout
       window.location.href = `${window.location.origin}/cdn-cgi/access/logout`;
+    });
+  }
+
+  // Manage Exclusions Modal Handlers
+  if (openExclusionsModalBtn) {
+    openExclusionsModalBtn.addEventListener("click", () => {
+      openExclusionsModal();
+    });
+  }
+
+  if (closeExclusionsModalBtn) {
+    closeExclusionsModalBtn.addEventListener("click", () => {
+      if (exclusionsModal) exclusionsModal.classList.add("hidden");
+    });
+  }
+
+  function openExclusionsModal() {
+    const user = (loadedUsername || usernameInput.value.trim() || "bwobbones").toLowerCase();
+    if (exclusionsModalTitle) {
+      exclusionsModalTitle.textContent = `Manage Exclusions for "${user}"`;
+    }
+
+    // Populate datalist with all collection titles for quick autocomplete
+    if (collectionTitlesDatalist && rawCollectionData?.items) {
+      collectionTitlesDatalist.innerHTML = rawCollectionData.items
+        .map((i) => `<option value="${i.name}">`)
+        .join("");
+    }
+
+    // Clone current user exclusions
+    editingExclusions = Array.isArray(rawCollectionData?.userExclusions)
+      ? [...rawCollectionData.userExclusions]
+      : [];
+
+    renderModalExclusionsList();
+    if (exclusionsModal) exclusionsModal.classList.remove("hidden");
+  }
+
+  function renderModalExclusionsList() {
+    if (!modalExclusionsList) return;
+    if (modalExclusionsCount) modalExclusionsCount.textContent = editingExclusions.length;
+
+    if (editingExclusions.length === 0) {
+      modalExclusionsList.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 font-medium">No exclusions set for this user.</div>`;
+      return;
+    }
+
+    modalExclusionsList.innerHTML = editingExclusions
+      .map((title, idx) => `
+        <div class="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
+          <span class="text-xs font-bold text-slate-800 truncate mr-2">${title}</span>
+          <button data-remove-idx="${idx}" class="remove-exclusion-btn text-xs text-slate-400 hover:text-rose-600 p-1 transition" title="Remove exclusion">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      `)
+      .join("");
+
+    // Bind remove buttons
+    modalExclusionsList.querySelectorAll(".remove-exclusion-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.dataset.removeIdx, 10);
+        if (!isNaN(idx)) {
+          editingExclusions.splice(idx, 1);
+          renderModalExclusionsList();
+        }
+      });
+    });
+  }
+
+  // Add Exclusion Handler
+  if (addExclusionBtn && newExclusionInput) {
+    const handleAdd = () => {
+      const val = newExclusionInput.value.trim();
+      if (!val) return;
+      if (!editingExclusions.some((e) => e.toLowerCase() === val.toLowerCase())) {
+        editingExclusions.unshift(val);
+        newExclusionInput.value = "";
+        renderModalExclusionsList();
+      }
+    };
+    addExclusionBtn.addEventListener("click", handleAdd);
+    newExclusionInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAdd();
+      }
+    });
+  }
+
+  // Clear All Exclusions
+  if (clearAllExclusionsBtn) {
+    clearAllExclusionsBtn.addEventListener("click", () => {
+      editingExclusions = [];
+      renderModalExclusionsList();
+    });
+  }
+
+  // Reset to Code Defaults
+  if (resetDefaultExclusionsBtn) {
+    resetDefaultExclusionsBtn.addEventListener("click", async () => {
+      const user = (loadedUsername || usernameInput.value.trim() || "bwobbones").toLowerCase();
+      if (user === "bwobbones") {
+        editingExclusions = [
+          "Agricola (Revised Edition)",
+          "Excalibur",
+          "Flash Point: Legacy of Flame",
+          "GKR: Heavy Hitters",
+          "Glen More II: Chronicles",
+          "Moon Colony Bloodbath",
+          "Pictomania (Second Edition)",
+          "Psycho Raiders",
+          "Quacks",
+          "Ready Set Bet",
+          "Sagrada Artisans",
+          "Shikoku 1889",
+          "The Queen's Dilemma",
+          "Through Ice & Snow",
+          "Ticket to Ride: Europe",
+          "Wingspan",
+          "Camel Up",
+        ];
+      } else {
+        editingExclusions = [];
+      }
+      renderModalExclusionsList();
+    });
+  }
+
+  // Save Exclusions to Cloudflare KV permanently across all devices
+  if (saveExclusionsBtn) {
+    saveExclusionsBtn.addEventListener("click", async () => {
+      const user = (loadedUsername || usernameInput.value.trim() || "bwobbones").toLowerCase();
+      const originalBtnHTML = saveExclusionsBtn.innerHTML;
+      saveExclusionsBtn.disabled = true;
+      saveExclusionsBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Saving...`;
+
+      try {
+        const res = await fetch("/api/exclusions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            username: user,
+            exclusions: editingExclusions,
+          }),
+        });
+
+        const json = await res.json();
+        if (!json.success) {
+          throw new Error(json.error || "Failed to save exclusions");
+        }
+
+        // Close modal
+        if (exclusionsModal) exclusionsModal.classList.add("hidden");
+
+        // Force refresh collection to apply new KV exclusions
+        loadCollection({ forceRefresh: true });
+      } catch (err) {
+        alert(`Error saving exclusions: ${err.message}`);
+      } finally {
+        saveExclusionsBtn.disabled = false;
+        saveExclusionsBtn.innerHTML = originalBtnHTML;
+      }
     });
   }
 
