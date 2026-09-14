@@ -117,7 +117,6 @@ export default {
         .trim()
         .toLowerCase();
 
-      // GET: return persistent exclusions for user
       if (request.method === "GET") {
         const exclusions = await getUserExclusions(env, normUser);
         return new Response(
@@ -126,7 +125,6 @@ export default {
         );
       }
 
-      // POST: save updated exclusions array to KV
       if (request.method === "POST") {
         try {
           const body = await request.json();
@@ -194,7 +192,7 @@ export default {
           const text = await res.text();
 
           if (res.status === 202 || text.includes("Your request for this collection has been accepted")) {
-            await new Promise((r) => setTimeout(r, 3000));
+            await new Promise((r) => setTimeout(r, 2500));
             continue;
           }
 
@@ -245,7 +243,7 @@ export default {
           };
         });
 
-        // Batch fetch details
+        // Batch fetch details in parallel groups of 3 chunks
         const ids = items.map((i) => i.id).filter(Boolean);
         const chunkSize = 20;
         const chunks = [];
@@ -254,42 +252,50 @@ export default {
         }
 
         const thingDetails = new Map();
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i];
-          let retry = 0;
-          let success = false;
-          while (retry < 3 && !success) {
-            try {
-              const tRes = await fetch(
-                `https://boardgamegeek.com/xmlapi2/thing?id=${chunk.join(",")}&stats=1`,
-                { headers }
-              );
-              if (tRes.status === 429) {
-                await new Promise((r) => setTimeout(r, 2000));
-                retry++;
-                continue;
-              }
-              const tText = await tRes.text();
-              const parsedThing = convert.xml2js(tText, { compact: true });
-              const tItems = parsedThing?.items?.item
-                ? Array.isArray(parsedThing.items.item)
-                  ? parsedThing.items.item
-                  : [parsedThing.items.item]
-                : [];
+        const concurrency = 3;
 
-              for (const t of tItems) {
-                const tid = parseInt(getAttr(t, "id"), 10);
-                const type = getAttr(t, "type");
-                const bestAt = extractBestAt(t);
-                if (tid) thingDetails.set(tid, { type, bestAt });
+        for (let i = 0; i < chunks.length; i += concurrency) {
+          const currentBatch = chunks.slice(i, i + concurrency);
+          const promises = currentBatch.map(async (chunk) => {
+            let retry = 0;
+            let success = false;
+            while (retry < 3 && !success) {
+              try {
+                const tRes = await fetch(
+                  `https://boardgamegeek.com/xmlapi2/thing?id=${chunk.join(",")}&stats=1`,
+                  { headers }
+                );
+                if (tRes.status === 429) {
+                  await new Promise((r) => setTimeout(r, 2000));
+                  retry++;
+                  continue;
+                }
+                const tText = await tRes.text();
+                const parsedThing = convert.xml2js(tText, { compact: true });
+                const tItems = parsedThing?.items?.item
+                  ? Array.isArray(parsedThing.items.item)
+                    ? parsedThing.items.item
+                    : [parsedThing.items.item]
+                  : [];
+
+                for (const t of tItems) {
+                  const tid = parseInt(getAttr(t, "id"), 10);
+                  const type = getAttr(t, "type");
+                  const bestAt = extractBestAt(t);
+                  if (tid) thingDetails.set(tid, { type, bestAt });
+                }
+                success = true;
+              } catch (e) {
+                retry++;
+                await new Promise((r) => setTimeout(r, 1000));
               }
-              success = true;
-            } catch (e) {
-              retry++;
-              await new Promise((r) => setTimeout(r, 1000));
             }
+          });
+
+          await Promise.all(promises);
+          if (i + concurrency < chunks.length) {
+            await new Promise((r) => setTimeout(r, 150));
           }
-          if (i + 1 < chunks.length) await new Promise((r) => setTimeout(r, 100));
         }
 
         for (const item of items) {
