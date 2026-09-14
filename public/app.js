@@ -223,33 +223,21 @@ document.addEventListener("DOMContentLoaded", () => {
   searchInput.addEventListener("input", () => applyClientFilters());
   minRatingInput.addEventListener("input", () => applyClientFilters());
 
-  // Reload collection on username change or Enter key press
-  let usernameDebounceTimer = null;
-  usernameInput.addEventListener("input", () => {
-    clearTimeout(usernameDebounceTimer);
-    const newUsername = usernameInput.value.trim();
-    if (newUsername && newUsername !== loadedUsername) {
-      usernameDebounceTimer = setTimeout(() => {
-        loadCollection({ forceRefresh: true });
-      }, 750);
-    }
-  });
-
-  usernameInput.addEventListener("change", () => {
-    clearTimeout(usernameDebounceTimer);
-    const newUsername = usernameInput.value.trim();
-    if (newUsername && newUsername !== loadedUsername) {
-      loadCollection({ forceRefresh: true });
-    }
-  });
-
+  // Reload collection only on Enter key or when input loses focus (change)
   usernameInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
-      clearTimeout(usernameDebounceTimer);
+      e.preventDefault();
       const newUsername = usernameInput.value.trim();
       if (newUsername && newUsername !== loadedUsername) {
         loadCollection({ forceRefresh: true });
       }
+    }
+  });
+
+  usernameInput.addEventListener("change", () => {
+    const newUsername = usernameInput.value.trim();
+    if (newUsername && newUsername !== loadedUsername) {
+      loadCollection({ forceRefresh: true });
     }
   });
 
