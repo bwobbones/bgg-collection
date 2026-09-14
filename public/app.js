@@ -51,6 +51,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const progressPercentageText = document.getElementById("progressPercentageText");
   const progressBar = document.getElementById("progressBar");
 
+  // Togglable Progress Details & Live Activity Console Elements
+  const toggleProgressDetailsBtn = document.getElementById("toggleProgressDetailsBtn");
+  const progressDetailsChevron = document.getElementById("progressDetailsChevron");
+  const progressDetailsToggleLabel = document.getElementById("progressDetailsToggleLabel");
+  const progressDetailsBox = document.getElementById("progressDetailsBox");
+  const step1StatusBadge = document.getElementById("step1StatusBadge");
+  const step1DetailText = document.getElementById("step1DetailText");
+  const step2StatusBadge = document.getElementById("step2StatusBadge");
+  const step2DetailText = document.getElementById("step2DetailText");
+  const step3StatusBadge = document.getElementById("step3StatusBadge");
+  const step3DetailText = document.getElementById("step3DetailText");
+  const progressLogConsole = document.getElementById("progressLogConsole");
+  const logEntriesCount = document.getElementById("logEntriesCount");
+  const viewFetchDetailsBtn = document.getElementById("viewFetchDetailsBtn");
+  let clientActivityLogs = [];
+
   const errorBox = document.getElementById("errorBox");
   const errorHeading = document.getElementById("errorHeading");
   const errorMessage = document.getElementById("errorMessage");
@@ -490,12 +506,92 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-rose-100 text-rose-700 border border-rose-300 shadow-xs">${text}</span>`;
   }
 
+  // Append line to live activity log console
+  function appendActivityLog(step, msg) {
+    const time = new Date().toLocaleTimeString();
+    clientActivityLogs.push({ step, time, message: msg });
+
+    if (logEntriesCount) {
+      logEntriesCount.textContent = `${clientActivityLogs.length} entries`;
+    }
+
+    if (progressLogConsole) {
+      const line = document.createElement("div");
+      line.className = "flex items-start gap-2 text-xs font-mono leading-relaxed";
+
+      let stepBadge = "";
+      if (step === 1) stepBadge = '<span class="text-sky-400 font-bold">[Step 1]</span>';
+      else if (step === 2) stepBadge = '<span class="text-amber-400 font-bold">[Step 2]</span>';
+      else if (step === 3) stepBadge = '<span class="text-emerald-400 font-bold">[Step 3]</span>';
+      else stepBadge = '<span class="text-slate-400 font-bold">[Info]</span>';
+
+      line.innerHTML = `<span class="text-slate-500">${time}</span> ${stepBadge} <span class="text-slate-200">${msg}</span>`;
+      progressLogConsole.appendChild(line);
+      progressLogConsole.scrollTop = progressLogConsole.scrollHeight;
+    }
+  }
+
+  // Toggle Progress Details Box
+  if (toggleProgressDetailsBtn && progressDetailsBox) {
+    toggleProgressDetailsBtn.addEventListener("click", () => {
+      const isHidden = progressDetailsBox.classList.contains("hidden");
+      if (isHidden) {
+        progressDetailsBox.classList.remove("hidden");
+        if (progressDetailsToggleLabel) progressDetailsToggleLabel.textContent = "Hide Details";
+        if (progressDetailsChevron) progressDetailsChevron.classList.add("rotate-180");
+      } else {
+        progressDetailsBox.classList.add("hidden");
+        if (progressDetailsToggleLabel) progressDetailsToggleLabel.textContent = "Show Details";
+        if (progressDetailsChevron) progressDetailsChevron.classList.remove("rotate-180");
+      }
+    });
+  }
+
+  // Re-open Fetch Details from Results Card Header
+  if (viewFetchDetailsBtn && progressBox) {
+    viewFetchDetailsBtn.addEventListener("click", () => {
+      progressBox.classList.toggle("hidden");
+      if (!progressBox.classList.contains("hidden") && progressDetailsBox) {
+        progressDetailsBox.classList.remove("hidden");
+        if (progressDetailsToggleLabel) progressDetailsToggleLabel.textContent = "Hide Details";
+        if (progressDetailsChevron) progressDetailsChevron.classList.add("rotate-180");
+      }
+    });
+  }
+
   function updateProgressUI(pct, stepName, msg) {
     const safePct = Math.min(100, Math.max(0, pct || 0));
     progressBar.style.width = `${safePct}%`;
     progressPercentageText.textContent = `${safePct}%`;
     if (stepName) progressStepBadge.textContent = stepName;
     if (msg) progressMessage.textContent = msg;
+
+    if (stepName && stepName.includes("1/3") && step1StatusBadge) {
+      step1StatusBadge.textContent = "In Progress...";
+      step1StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 animate-pulse";
+    } else if (stepName && stepName.includes("2/3")) {
+      if (step1StatusBadge) {
+        step1StatusBadge.textContent = "✔ Done";
+        step1StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+      }
+      if (step2StatusBadge) {
+        step2StatusBadge.textContent = `In Progress (${safePct}%)`;
+        step2StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 animate-pulse";
+      }
+    } else if (stepName && stepName.includes("3/3")) {
+      if (step1StatusBadge) {
+        step1StatusBadge.textContent = "✔ Done";
+        step1StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+      }
+      if (step2StatusBadge) {
+        step2StatusBadge.textContent = "✔ Done";
+        step2StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+      }
+      if (step3StatusBadge) {
+        step3StatusBadge.textContent = "In Progress...";
+        step3StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 animate-pulse";
+      }
+    }
   }
 
   // Draw Graphical Wheel on HTML5 Canvas
@@ -669,10 +765,8 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         nums = rawNums;
       }
-    } else {
-      const minP = item.minPlayers || 1;
-      const maxP = item.maxPlayers || 1;
-      for (let p = minP; p <= maxP; p++) nums.push(p);
+    } else if (item.minPlayers && item.maxPlayers) {
+      for (let p = item.minPlayers; p <= item.maxPlayers; p++) nums.push(p);
     }
 
     for (const opt of selectedCounts) {
@@ -877,6 +971,27 @@ document.addEventListener("DOMContentLoaded", () => {
     progressBox.classList.remove("hidden");
     updateProgressUI(0, "Step 1/3", `Connecting to BGG for user "${username}"...`);
 
+    // Reset live activity log & step cards
+    if (progressLogConsole) progressLogConsole.innerHTML = "";
+    clientActivityLogs = [];
+    appendActivityLog(1, `Connecting to BoardGameGeek XMLAPI2 for user "${username}"...`);
+
+    if (step1StatusBadge) {
+      step1StatusBadge.textContent = "In Progress...";
+      step1StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 animate-pulse";
+    }
+    if (step1DetailText) step1DetailText.textContent = "Queries BGG user XMLAPI2 and polls queue.";
+    if (step2StatusBadge) {
+      step2StatusBadge.textContent = "Pending";
+      step2StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600";
+    }
+    if (step2DetailText) step2DetailText.textContent = "Fetches Best At polls & true game types.";
+    if (step3StatusBadge) {
+      step3StatusBadge.textContent = "Pending";
+      step3StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600";
+    }
+    if (step3DetailText) step3DetailText.textContent = "Applies exclusions & calculates Gold metric.";
+
     fetchIcon.classList.add("animate-spin");
     if (refreshIcon) refreshIcon.classList.add("animate-spin");
     fetchBtn.disabled = true;
@@ -925,6 +1040,36 @@ document.addEventListener("DOMContentLoaded", () => {
           : `+ Add Exclusions`;
       }
 
+      // Update step status cards and activity log if provided
+      if (Array.isArray(payloadData.activityLog) && payloadData.activityLog.length > 0) {
+        if (progressLogConsole) progressLogConsole.innerHTML = "";
+        payloadData.activityLog.forEach((log) => {
+          appendActivityLog(log.step, log.message);
+        });
+      }
+
+      if (step1StatusBadge) {
+        step1StatusBadge.textContent = "✔ Done";
+        step1StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+      }
+      if (step1DetailText) {
+        step1DetailText.textContent = `Downloaded ${payloadData.totalItems || 0} collection items from BGG.`;
+      }
+      if (step2StatusBadge) {
+        step2StatusBadge.textContent = "✔ Done";
+        step2StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+      }
+      if (step2DetailText) {
+        step2DetailText.textContent = `Enriched ${payloadData.totalItems || 0} games with Best At polls & types.`;
+      }
+      if (step3StatusBadge) {
+        step3StatusBadge.textContent = "✔ Done";
+        step3StatusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+      }
+      if (step3DetailText) {
+        step3DetailText.textContent = `${payloadData.totalEligibleCount || 0} base owned games ready.`;
+      }
+
       // Finish Progress UI
       updateProgressUI(100, "Done!", "Collection loaded successfully!");
 
@@ -954,10 +1099,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (payload.step === "collection" || payload.step === "queue") {
             stepName = "Step 1/3";
+            appendActivityLog(1, payload.message);
           } else if (payload.step === "things_start" || payload.step === "things" || payload.step === "ratelimit") {
             stepName = "Step 2/3";
+            appendActivityLog(2, payload.message);
           } else if (payload.step === "filtering" || payload.step === "formatting") {
             stepName = "Step 3/3";
+            appendActivityLog(3, payload.message);
           }
 
           updateProgressUI(pct, stepName, payload.message);

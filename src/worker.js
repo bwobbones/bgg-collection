@@ -174,6 +174,18 @@ export default {
       }
 
       try {
+        const activityLog = [];
+        const addLog = (step, msg) => {
+          activityLog.push({
+            step,
+            time: new Date().toLocaleTimeString(),
+            message: msg,
+          });
+        };
+
+        const startTime = Date.now();
+        addLog(1, `Connecting to BoardGameGeek XMLAPI2 for user "${username}"...`);
+
         const headers = {
           Authorization: `Bearer ${token.trim()}`,
           "User-Agent": "bgg-collection-app/1.0",
@@ -192,6 +204,7 @@ export default {
           const text = await res.text();
 
           if (res.status === 202 || text.includes("Your request for this collection has been accepted")) {
+            addLog(1, `Collection request queued by BGG. Polling attempt ${attempt}/${maxRetries}...`);
             await new Promise((r) => setTimeout(r, 2500));
             continue;
           }
@@ -218,6 +231,9 @@ export default {
             : [parsedColl.items.item]
           : [];
 
+        const step1Duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        addLog(1, `Step 1 Complete: Received ${rawItems.length} raw collection items from BGG (${step1Duration}s).`);
+
         const items = rawItems.map((item) => {
           const id = parseInt(getAttr(item, "objectid"), 10);
           const name = getText(item.name) || "Unknown";
@@ -227,11 +243,15 @@ export default {
           const own = getAttr(item.status, "own") === "1";
           const avg = parseFloat(getAttr(item.stats?.rating?.average, "value") || "0");
           const usersRated = parseInt(getAttr(item.stats?.rating?.usersrated, "value") || "0", 10);
+          const minPlayers = parseInt(getAttr(item.stats, "minplayers"), 10) || null;
+          const maxPlayers = parseInt(getAttr(item.stats, "maxplayers"), 10) || null;
 
           return {
             id,
             name,
             year,
+            minPlayers,
+            maxPlayers,
             subtype: getAttr(item, "subtype") || "boardgame",
             realType: "boardgame",
             status: { own },
@@ -274,22 +294,27 @@ export default {
           chunks.push(ids.slice(i, i + chunkSize));
         }
 
+        addLog(2, `Step 2 Starting: Partitioned ${ids.length} games into ${chunks.length} batches of max 20 IDs.`);
+
         const thingDetails = new Map();
-        const concurrency = 3;
+        const concurrency = 2;
+        const step2Start = Date.now();
 
         for (let i = 0; i < chunks.length; i += concurrency) {
           const currentBatch = chunks.slice(i, i + concurrency);
           const promises = currentBatch.map(async (chunk) => {
             let retry = 0;
             let success = false;
-            while (retry < 3 && !success) {
+            while (retry < 5 && !success) {
               try {
                 const tRes = await fetch(
                   `https://boardgamegeek.com/xmlapi2/thing?id=${chunk.join(",")}&stats=1`,
                   { headers }
                 );
                 if (tRes.status === 429 || tRes.status === 503) {
-                  await new Promise((r) => setTimeout(r, 2000));
+                  const delay = (retry + 1) * 1500 + Math.floor(Math.random() * 600);
+                  addLog(2, `Rate limited by BGG on batch. Retrying in ${(delay / 1000).toFixed(1)}s...`);
+                  await new Promise((r) => setTimeout(r, delay));
                   retry++;
                   continue;
                 }
@@ -308,9 +333,12 @@ export default {
 
           await Promise.all(promises);
           if (i + concurrency < chunks.length) {
-            await new Promise((r) => setTimeout(r, 150));
+            await new Promise((r) => setTimeout(r, 180));
           }
         }
+
+        let commBestCount = 0;
+        let pubFallbackCount = 0;
 
         for (const item of items) {
           const d = thingDetails.get(item.id);
@@ -320,16 +348,23 @@ export default {
           if (commBest) {
             item.bestAt = commBest;
             item.isCommunityBest = true;
+            commBestCount++;
           } else if (item.minPlayers && item.maxPlayers) {
             item.bestAt = item.minPlayers === item.maxPlayers
               ? `${item.minPlayers} players`
               : `${item.minPlayers}–${item.maxPlayers} players`;
             item.isCommunityBest = false;
+            pubFallbackCount++;
           } else {
             item.bestAt = null;
             item.isCommunityBest = false;
           }
         }
+
+        const step2Duration = ((Date.now() - step2Start) / 1000).toFixed(2);
+        addLog(2, `Step 2 Complete: Enriched ${ids.length} games in ${step2Duration}s (${commBestCount} community polls, ${pubFallbackCount} publisher fallbacks).`);
+
+        addLog(3, `Step 3 Starting: Applying base filters, exclusions, and gold metrics...`);
 
         let baseGames = items.filter((i) => i.status.own);
 
@@ -342,10 +377,15 @@ export default {
 
         if (!includeExclusions) {
           baseGames = baseGames.filter((i) => !exclSet.has(i.name.toLowerCase().trim()));
+          addLog(3, `Exclusion Filter: ${excludedCount} games excluded for user "${username}".`);
+        } else {
+          addLog(3, `Exclusion Filter: Bypassed (${excludedCount} games included via toggle).`);
         }
 
+        let expansionCount = 0;
         if (!includeExpansions) {
           const expansionRegex = /\b(expansion|promo|map pack|expansion set|mini-expansion|booster pack|promo pack|promo cards)\b/i;
+          const preCount = baseGames.length;
           baseGames = baseGames.filter(
             (i) =>
               i.realType !== "boardgameexpansion" &&
@@ -353,6 +393,8 @@ export default {
               !i.subtype.toLowerCase().includes("expansion") &&
               !expansionRegex.test(i.name)
           );
+          expansionCount = preCount - baseGames.length;
+          addLog(3, `Expansion Filter: ${expansionCount} expansions filtered via authoritative BGG type.`);
         }
 
         const totalEligibleCount = baseGames.length;
@@ -363,6 +405,10 @@ export default {
           totalEligibleCount > 0
             ? ((goldCount / totalEligibleCount) * 100).toFixed(1)
             : "0.0";
+
+        addLog(3, `Gold Metric: ${goldCount} of ${totalEligibleCount} games (${goldPercentage}%) have rating >= 7.2 with >300 votes.`);
+        const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
+        addLog(3, `Step 3 Complete: Ready with ${baseGames.length} games (Total time: ${totalDuration}s).`);
 
         return new Response(
           JSON.stringify({
@@ -377,6 +423,7 @@ export default {
               goldCount,
               goldPercentage,
               returnedCount: baseGames.length,
+              activityLog,
               items: baseGames,
             },
           }),
