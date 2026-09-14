@@ -80,7 +80,7 @@
           </label>
           <div class="relative">
             <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-            <input type="text" id="usernameInput" value="bwobbones"
+            <input type="text" id="usernameInput" value="" placeholder="Enter BGG Username..."
               class="season-input w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
           </div>
         </div>
@@ -169,14 +169,15 @@
             </label>
           </div>
 
-          <div id="exclusionsOptionWrapper" class="hidden flex items-center gap-2 pt-4">
-            <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
+          <!-- Exclusions Management & Toggle (Always accessible) -->
+          <div id="exclusionsOptionWrapper" class="flex items-center gap-2 pt-4">
+            <label id="includeExclusionsLabel" class="hidden inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
               <input type="checkbox" id="includeExclusionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
               <span>Include Excluded Games (<span id="exclusionsCountBadge" class="text-amber-600 font-black">0 excluded</span>)</span>
             </label>
-            <button id="openExclusionsModalBtn" title="Manage Exclusions for this user" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs">
+            <button id="openExclusionsModalBtn" title="Manage Exclusions for this user" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
               <i class="fa-solid fa-gear text-amber-600"></i>
-              <span>Manage</span>
+              <span id="manageExclusionsBtnText">Manage Exclusions</span>
             </button>
           </div>
         </div>
@@ -257,6 +258,17 @@
           <p class="text-xs text-slate-500 font-medium mt-1">Percentage of eligible collection (>300 ratings)</p>
         </div>
       </div>
+    </div>
+
+    <!-- Welcome / Empty State Prompt -->
+    <div id="welcomeCard" class="season-card bg-white border border-slate-200 rounded-2xl p-10 shadow-lg text-center space-y-3">
+      <div class="w-16 h-16 bg-amber-50 text-amber-500 border border-amber-200 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-sm">
+        <i class="fa-solid fa-dice-d20"></i>
+      </div>
+      <h2 class="text-lg font-black text-slate-900">Welcome to BGG Explorer</h2>
+      <p class="text-sm text-slate-500 font-medium max-w-md mx-auto">
+        Enter a BoardGameGeek username above and click <strong>Fetch Collection</strong> (or press Enter) to load and analyze your games.
+      </p>
     </div>
 
     <!-- Results Container -->

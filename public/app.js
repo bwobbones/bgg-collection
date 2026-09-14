@@ -36,6 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const includeExclusionsInput = document.getElementById("includeExclusionsInput");
   const exclusionsCountBadge = document.getElementById("exclusionsCountBadge");
   const exclusionsOptionWrapper = document.getElementById("exclusionsOptionWrapper");
+  const includeExclusionsLabel = document.getElementById("includeExclusionsLabel");
+  const manageExclusionsBtnText = document.getElementById("manageExclusionsBtnText");
+  const welcomeCard = document.getElementById("welcomeCard");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
   const refreshBtn = document.getElementById("refreshBtn");
@@ -286,7 +289,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openExclusionsModal() {
-    const user = (loadedUsername || usernameInput.value.trim() || "bwobbones").toLowerCase();
+    const user = (loadedUsername || usernameInput.value.trim()).toLowerCase();
+    if (!user) {
+      alert("Please enter a BGG username first.");
+      usernameInput.focus();
+      return;
+    }
     if (exclusionsModalTitle) {
       exclusionsModalTitle.textContent = `Manage Exclusions for "${user}"`;
     }
@@ -617,14 +625,25 @@ document.addEventListener("DOMContentLoaded", () => {
   function announceWinner(winner) {
     if (!winner) return;
 
-    winnerTitle.textContent = winner.name;
+    const bggUrl = `https://boardgamegeek.com/boardgame/${winner.id}`;
+
+    winnerTitle.innerHTML = `
+      <a href="${bggUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-amber-600 hover:underline inline-flex items-center gap-1.5 truncate max-w-full">
+        <span>${winner.name}</span>
+        <i class="fa-solid fa-arrow-up-right-from-square text-xs text-amber-500"></i>
+      </a>
+    `;
     winnerBestAt.textContent = winner.bestAt ? `Best At: ${winner.bestAt}` : "Player Count: N/A";
     winnerRating.textContent = winner.averageRating
       ? `Avg: ${winner.averageRating.toFixed(1)}`
       : "Avg: N/A";
 
     if (winner.thumbnail) {
-      winnerImgContainer.innerHTML = `<img src="${winner.thumbnail}" alt="${winner.name}" class="w-full h-full object-cover">`;
+      winnerImgContainer.innerHTML = `
+        <a href="${bggUrl}" target="_blank" rel="noopener noreferrer" class="block w-full h-full">
+          <img src="${winner.thumbnail}" alt="${winner.name}" class="w-full h-full object-cover">
+        </a>
+      `;
     } else {
       winnerImgContainer.innerHTML = `<i class="fa-solid fa-trophy text-amber-500 text-2xl"></i>`;
     }
@@ -803,7 +822,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Fetch collection from server API (supports SSE stream with automatic fetch fallback)
   async function loadCollection(options = {}) {
     const { forceRefresh = false } = options;
-    const username = usernameInput.value.trim() || "bwobbones";
+    const username = usernameInput.value.trim();
+
+    if (!username) {
+      usernameInput.focus();
+      if (welcomeCard) welcomeCard.classList.remove("hidden");
+      resultsCard.classList.add("hidden");
+      statsCard.classList.add("hidden");
+      return;
+    }
+
+    if (welcomeCard) welcomeCard.classList.add("hidden");
     const includeExpansions = includeExpansionsInput.checked;
     const includeExclusions = includeExclusionsInput ? includeExclusionsInput.checked : false;
 
@@ -857,21 +886,32 @@ document.addEventListener("DOMContentLoaded", () => {
       loadedIncludeExpansions = includeExpansions;
       loadedIncludeExclusions = includeExclusions;
 
-      // Manage User Exclusions visibility
-      const hasUserExclusions =
-        rawCollectionData.userExclusionsCount !== undefined &&
-        rawCollectionData.userExclusionsCount > 0;
+      // Manage User Exclusions visibility and manage button
+      const userExclList = Array.isArray(rawCollectionData.userExclusions)
+        ? rawCollectionData.userExclusions
+        : [];
+      const hasUserExclusions = userExclList.length > 0;
 
       if (exclusionsOptionWrapper) {
+        exclusionsOptionWrapper.classList.remove("hidden");
+      }
+
+      if (includeExclusionsLabel) {
         if (hasUserExclusions) {
-          exclusionsOptionWrapper.classList.remove("hidden");
+          includeExclusionsLabel.classList.remove("hidden");
           if (exclusionsCountBadge) {
-            exclusionsCountBadge.textContent = `${rawCollectionData.userExclusionsCount} excluded`;
+            exclusionsCountBadge.textContent = `${userExclList.length} excluded`;
           }
         } else {
-          exclusionsOptionWrapper.classList.add("hidden");
+          includeExclusionsLabel.classList.add("hidden");
           if (includeExclusionsInput) includeExclusionsInput.checked = false;
         }
+      }
+
+      if (manageExclusionsBtnText) {
+        manageExclusionsBtnText.textContent = hasUserExclusions
+          ? `Manage (${userExclList.length})`
+          : `+ Add Exclusions`;
       }
 
       // Finish Progress UI
@@ -1031,9 +1071,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tableBody.innerHTML = filteredItems
       .map((item, idx) => {
+        const bggUrl = `https://boardgamegeek.com/boardgame/${item.id}`;
+
         const img = item.thumbnail
-          ? `<img src="${item.thumbnail}" alt="${item.name}" class="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-xs">`
-          : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400"><i class="fa-solid fa-dice-d6"></i></div>`;
+          ? `<a href="${bggUrl}" target="_blank" rel="noopener noreferrer" title="View ${item.name} on BoardGameGeek" class="block w-10 h-10 transition transform hover:scale-110">
+               <img src="${item.thumbnail}" alt="${item.name}" class="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-xs">
+             </a>`
+          : `<a href="${bggUrl}" target="_blank" rel="noopener noreferrer" title="View ${item.name} on BoardGameGeek" class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 transition">
+               <i class="fa-solid fa-dice-d6"></i>
+             </a>`;
+
+        const titleHtml = `
+          <a href="${bggUrl}" target="_blank" rel="noopener noreferrer" title="Open ${item.name} on BoardGameGeek (opens in new tab)" class="hover:text-amber-600 hover:underline font-bold text-slate-900 inline-flex items-center gap-1.5 transition">
+            <span>${item.name}</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400 hover:text-amber-500"></i>
+          </a>
+        `;
 
         const bestAtBadge = item.bestAt
           ? `<span class="px-2.5 py-1 rounded-md text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200"><i class="fa-solid fa-users text-cyan-600 text-[10px] mr-1"></i>${item.bestAt}</span>`
@@ -1043,7 +1096,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <tr class="hover:bg-slate-50 transition">
             <td class="py-3.5 px-4 text-center text-xs text-slate-400 font-mono font-bold">${idx + 1}</td>
             <td class="py-3.5 px-4">${img}</td>
-            <td class="py-3.5 px-4 font-bold text-slate-900">${item.name}</td>
+            <td class="py-3.5 px-4">${titleHtml}</td>
             <td class="py-3.5 px-4">${bestAtBadge}</td>
             <td class="py-3.5 px-4 text-center">${formatRatingBadge(item.averageRating)}</td>
             <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-700">${item.numPlays || 0}</td>
@@ -1056,6 +1109,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Apply initial seasonal theme
   applySeasonTheme(currentSeason);
 
-  // Load initial collection on page load
-  loadCollection();
+  // If username is already filled, load; otherwise show welcome card and wait for user input
+  if (usernameInput.value.trim()) {
+    loadCollection();
+  } else {
+    if (welcomeCard) welcomeCard.classList.remove("hidden");
+    resultsCard.classList.add("hidden");
+    statsCard.classList.add("hidden");
+  }
 });
