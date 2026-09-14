@@ -633,7 +633,11 @@ document.addEventListener("DOMContentLoaded", () => {
         <i class="fa-solid fa-arrow-up-right-from-square text-xs text-amber-500"></i>
       </a>
     `;
-    winnerBestAt.textContent = winner.bestAt ? `Best At: ${winner.bestAt}` : "Player Count: N/A";
+    winnerBestAt.textContent = winner.bestAt
+      ? winner.isCommunityBest !== false
+        ? `Best At: ${winner.bestAt}`
+        : `Players: ${winner.bestAt} (publisher)`
+      : "Player Count: N/A";
     winnerRating.textContent = winner.averageRating
       ? `Avg: ${winner.averageRating.toFixed(1)}`
       : "Avg: N/A";
@@ -657,7 +661,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let nums = [];
     if (item.bestAt && item.bestAt !== "(Undetermined)") {
-      nums = item.bestAt.match(/\d+/g)?.map(Number) || [];
+      const rawNums = item.bestAt.match(/\d+/g)?.map(Number) || [];
+      if ((item.bestAt.includes("–") || item.bestAt.includes("-")) && rawNums.length >= 2) {
+        const min = Math.min(...rawNums);
+        const max = Math.max(...rawNums);
+        for (let n = min; n <= max; n++) nums.push(n);
+      } else {
+        nums = rawNums;
+      }
     } else {
       const minP = item.minPlayers || 1;
       const maxP = item.maxPlayers || 1;
@@ -1089,7 +1100,9 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
 
         const bestAtBadge = item.bestAt
-          ? `<span class="px-2.5 py-1 rounded-md text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200"><i class="fa-solid fa-users text-cyan-600 text-[10px] mr-1"></i>${item.bestAt}</span>`
+          ? item.isCommunityBest !== false
+            ? `<span class="px-2.5 py-1 rounded-md text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200" title="Community Best Player Count"><i class="fa-solid fa-users text-cyan-600 text-[10px] mr-1"></i>${item.bestAt}</span>`
+            : `<span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200" title="Publisher Player Count (No community consensus)"><i class="fa-solid fa-building text-slate-400 text-[10px] mr-1"></i>${item.bestAt} <span class="text-[9px] text-slate-400 font-normal">(pub)</span></span>`
           : `<span class="text-slate-400">—</span>`;
 
         return `

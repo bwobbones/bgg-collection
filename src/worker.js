@@ -256,7 +256,10 @@ export default {
             let bestAt = null;
             const bestMatch = body.match(/<result\s+name="bestwith"\s+value="([^"]+)"/);
             if (bestMatch) {
-              bestAt = bestMatch[1].replace(/^Best with\s+/i, "").trim();
+              const val = bestMatch[1].replace(/^Best with\s+/i, "").trim();
+              if (val && val !== "(Undetermined)") {
+                bestAt = val;
+              }
             }
             map.set(id, { type, bestAt });
           }
@@ -311,9 +314,20 @@ export default {
 
         for (const item of items) {
           const d = thingDetails.get(item.id);
-          if (d) {
-            if (d.bestAt) item.bestAt = d.bestAt;
-            if (d.type) item.realType = d.type;
+          const commBest = d?.bestAt && d.bestAt !== "(Undetermined)" ? d.bestAt : null;
+          if (d?.type) item.realType = d.type;
+
+          if (commBest) {
+            item.bestAt = commBest;
+            item.isCommunityBest = true;
+          } else if (item.minPlayers && item.maxPlayers) {
+            item.bestAt = item.minPlayers === item.maxPlayers
+              ? `${item.minPlayers} players`
+              : `${item.minPlayers}–${item.maxPlayers} players`;
+            item.isCommunityBest = false;
+          } else {
+            item.bestAt = null;
+            item.isCommunityBest = false;
           }
         }
 
