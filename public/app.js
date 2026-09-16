@@ -79,6 +79,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const statsCard = document.getElementById("statsCard");
   const statsDetail = document.getElementById("statsDetail");
   const statsPctBadge = document.getElementById("statsPctBadge");
+  const playedStatsCard = document.getElementById("playedStatsCard");
+  const playedStatsDetail = document.getElementById("playedStatsDetail");
+  const playedStatsPctBadge = document.getElementById("playedStatsPctBadge");
+  const playedStatsHint = document.getElementById("playedStatsHint");
 
   const resultsCard = document.getElementById("resultsCard");
   const resultsHeading = document.getElementById("resultsHeading");
@@ -1264,6 +1268,35 @@ document.addEventListener("DOMContentLoaded", () => {
       statsPctBadge.textContent = `${rawCollectionData.goldPercentage}%`;
     }
 
+    // Render Played Stats Card (whole collection, independent of the active filters)
+    if (playedStatsCard) {
+      const totalEligible = rawCollectionData.totalEligibleCount || 0;
+      if (totalEligible > 0) {
+        // Fall back to counting client-side so cached payloads from before this
+        // metric existed still render correctly
+        const playedCount =
+          typeof rawCollectionData.playedCount === "number"
+            ? rawCollectionData.playedCount
+            : rawCollectionData.items.filter((i) => (i.numPlays || 0) > 0).length;
+        const playedPct =
+          rawCollectionData.playedPercentage ??
+          ((playedCount / totalEligible) * 100).toFixed(1);
+        const unplayedCount =
+          typeof rawCollectionData.unplayedCount === "number"
+            ? rawCollectionData.unplayedCount
+            : totalEligible - playedCount;
+
+        playedStatsDetail.textContent = `${playedCount} / ${totalEligible} Games Played`;
+        playedStatsPctBadge.textContent = `${playedPct}%`;
+        if (playedStatsHint) {
+          playedStatsHint.textContent = `Percentage of collection with at least 1 logged play • ${unplayedCount} unplayed`;
+        }
+        playedStatsCard.classList.remove("hidden");
+      } else {
+        playedStatsCard.classList.add("hidden");
+      }
+    }
+
     // Update Results Heading
     const modeLabel = activeMode ? ` [preset: ${activeMode}]` : "";
     const unplayedLabel = unplayedOnly ? " [unplayed only]" : "";
@@ -1286,6 +1319,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (welcomeCard) welcomeCard.classList.remove("hidden");
       resultsCard.classList.add("hidden");
       statsCard.classList.add("hidden");
+      if (playedStatsCard) playedStatsCard.classList.add("hidden");
       return;
     }
 
@@ -1315,6 +1349,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (errorBox) errorBox.classList.add("hidden");
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
+    if (playedStatsCard) playedStatsCard.classList.add("hidden");
     tableBody.innerHTML = "";
     compactListText.value = "";
     jsonText.textContent = "";
@@ -1629,5 +1664,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (welcomeCard) welcomeCard.classList.remove("hidden");
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
+    if (playedStatsCard) playedStatsCard.classList.add("hidden");
   }
 });

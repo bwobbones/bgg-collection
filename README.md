@@ -24,6 +24,7 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
   - Limit top N items (`-l, --limit <number>`).
 - 💾 **Export to File**: Output directly to a file with `-o, --output <filepath>`.
 - 🎡 **Wheel of Fortune**: Spin the filtered collection to pick a random game, then share the spin to Discord as an animated GIF.
+- 📈 **Collection Metrics**: The web app shows a **Gold Games** card (share of the collection rated ≥ 7.2 with > 300 votes) and a **Played Games** card (share of the collection with at least one logged play, plus the unplayed count).
 
 ## Installation
 
@@ -68,6 +69,23 @@ npm run dev
 ```
 
 Open `http://localhost:3000` in your browser.
+
+## Collection Metrics
+
+After a collection loads, two banner cards summarise the whole eligible
+collection (owned games, after exclusion and expansion filtering). They describe
+the collection itself and deliberately ignore the rating presets, player-count
+pills, search, min-rating, and "Unplayed Only" filters:
+
+| Card | Calculation |
+| --- | --- |
+| **Gold Games** | `averageRating >= 7.2 && usersRated > 300` |
+| **Played Games** | `numPlays > 0` (plus the unplayed remainder) |
+
+Both counts and percentages are computed server-side (`playedCount`,
+`unplayedCount`, `playedPercentage` alongside `goldCount`/`goldPercentage`) and
+returned with the collection payload. The client falls back to counting items
+itself if it receives a cached payload that predates these fields.
 
 ## Wheel of Fortune & Discord Sharing
 

@@ -210,6 +210,9 @@ export async function onRequestGet(context) {
     const totalEligibleCount = baseGames.length;
     const goldCount = baseGames.filter(i => (i.averageRating ?? 0) >= 7.2 && (i.usersRated ?? 0) > 300).length;
     const goldPercentage = totalEligibleCount > 0 ? ((goldCount / totalEligibleCount) * 100).toFixed(1) : "0.0";
+    const playedCount = baseGames.filter(i => (i.numPlays || 0) > 0).length;
+    const unplayedCount = totalEligibleCount - playedCount;
+    const playedPercentage = totalEligibleCount > 0 ? ((playedCount / totalEligibleCount) * 100).toFixed(1) : "0.0";
 
     return new Response(
       JSON.stringify({
@@ -222,6 +225,9 @@ export async function onRequestGet(context) {
           activeExcludedCount: excludedCount,
           goldCount,
           goldPercentage,
+          playedCount,
+          unplayedCount,
+          playedPercentage,
           returnedCount: baseGames.length,
           items: baseGames,
         },

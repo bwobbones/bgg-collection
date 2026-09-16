@@ -370,7 +370,16 @@ async function processBGGCollection(params, env, onProgress) {
       ? ((goldCount / totalEligibleCount) * 100).toFixed(1)
       : "0.0";
 
+  // Played metrics: games with at least one logged play in the whole collection
+  const playedCount = baseGames.filter((i) => (i.numPlays || 0) > 0).length;
+  const unplayedCount = totalEligibleCount - playedCount;
+  const playedPercentage =
+    totalEligibleCount > 0
+      ? ((playedCount / totalEligibleCount) * 100).toFixed(1)
+      : "0.0";
+
   await addLog(3, `Gold Metric: ${goldCount} of ${totalEligibleCount} games (${goldPercentage}%) have rating >= 7.2 with >300 votes.`);
+  await addLog(3, `Played Metric: ${playedCount} of ${totalEligibleCount} games (${playedPercentage}%) have at least one logged play; ${unplayedCount} unplayed.`);
   const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
   await addLog(3, `Step 3 Complete: Ready with ${baseGames.length} games (Total time: ${totalDuration}s).`);
 
@@ -383,6 +392,9 @@ async function processBGGCollection(params, env, onProgress) {
     activeExcludedCount: excludedCount,
     goldCount,
     goldPercentage,
+    playedCount,
+    unplayedCount,
+    playedPercentage,
     returnedCount: baseGames.length,
     activityLog,
     items: baseGames,

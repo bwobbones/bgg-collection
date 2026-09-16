@@ -124,7 +124,7 @@ export async function onRequestGet(context) {
       const rawItems = parsedColl?.items?.item ? (Array.isArray(parsedColl.items.item) ? parsedColl.items.item : [parsedColl.items.item]) : [];
 
       if (rawItems.length === 0) {
-        await sendSSE("complete", { success: true, data: { username, totalItems: 0, totalEligibleCount: 0, goldCount: 0, goldPercentage: "0.0", items: [] } });
+        await sendSSE("complete", { success: true, data: { username, totalItems: 0, totalEligibleCount: 0, goldCount: 0, goldPercentage: "0.0", playedCount: 0, unplayedCount: 0, playedPercentage: "0.0", items: [] } });
         await writer.close();
         return;
       }
@@ -252,6 +252,9 @@ export async function onRequestGet(context) {
       const totalEligibleCount = baseGames.length;
       const goldCount = baseGames.filter(i => (i.averageRating ?? 0) >= 7.2 && (i.usersRated ?? 0) > 300).length;
       const goldPercentage = totalEligibleCount > 0 ? ((goldCount / totalEligibleCount) * 100).toFixed(1) : "0.0";
+    const playedCount = baseGames.filter(i => (i.numPlays || 0) > 0).length;
+    const unplayedCount = totalEligibleCount - playedCount;
+    const playedPercentage = totalEligibleCount > 0 ? ((playedCount / totalEligibleCount) * 100).toFixed(1) : "0.0";
 
       await sendSSE("complete", {
         success: true,
@@ -263,6 +266,9 @@ export async function onRequestGet(context) {
           activeExcludedCount: excludedCount,
           goldCount,
           goldPercentage,
+          playedCount,
+          unplayedCount,
+          playedPercentage,
           returnedCount: baseGames.length,
           items: baseGames,
         },
