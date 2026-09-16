@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { getProcessedCollection } from "./lib/collectionService.js";
 import { getExclusionsForUser } from "./lib/exclusions.js";
 import { shareSpinToDiscord } from "./lib/discord.js";
-import { fetchAllPlays, buildPlayTimeline } from "./lib/playsTimeline.js";
+import { fetchPlaysPages, MAX_PAGES_PER_REQUEST, DEFAULT_PAGES_PER_REQUEST } from "./lib/playsTimeline.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -246,44 +246,45 @@ app.post("/api/discord/spin", async (req, res) => {
 });
 
 /**
- * Play History Timeline: GET /api/plays/timeline
- * Mirrors the Cloudflare Worker route so local development behaves the same.
+ * Play History Pages: GET /api/plays/pages
+ * Mirrors the Cloudflare Worker route (bounded page bundles) so local development
+ * behaves the same. Uses a tiny in-memory cache in place of Cloudflare KV.
  */
-app.get("/api/plays/timeline", async (req, res) => {
-  const token = process.env.BGG_TOKEN;
+const localPlaysPageCache = new Map();
+const localPlaysCache = {
+  async get(key) {
+    const entry = localPlaysPageCache.get(key);
+    return entry && entry.expires > Date.now() ? entry.value : null;
+  },
+  async put(key, value, opts = {}) {
+    const ttl = (opts.expirationTtl || 3600) * 1000;
+    localPlaysPageCache.set(key, { value: JSON.parse(value), expires: Date.now() + ttl });
+  },
+};
+
+app.get("/api/plays/pages", async (req, res) => {
   const username = String(req.query.username || process.env.BGG_USERNAME || "").trim();
-  const includeExpansions = String(req.query.includeExpansions) === "true";
-  const includeExclusions = String(req.query.includeExclusions) === "true";
+  const from = parseInt(req.query.from || "1", 10);
+  const countParam = parseInt(req.query.count || String(DEFAULT_PAGES_PER_REQUEST), 10);
+  const count = Math.max(1, Math.min(MAX_PAGES_PER_REQUEST, Number.isFinite(countParam) ? countParam : DEFAULT_PAGES_PER_REQUEST));
+  const forceRefresh = String(req.query.forceRefresh) === "true";
 
   if (!username) {
     return res.status(400).json({ success: false, error: "Username is required." });
   }
 
   try {
-    const collection = await getProcessedCollection({
+    const data = await fetchPlaysPages({
       username,
-      includeExpansions,
-      includeExclusions,
-      verbose: false,
+      token: process.env.BGG_TOKEN,
+      from: Number.isFinite(from) ? from : 1,
+      count,
+      cache: forceRefresh ? null : localPlaysCache,
     });
 
-    const { plays } = await fetchAllPlays({ username, token });
-    const eligibleIds = new Set(collection.items.map((i) => i.id).filter(Boolean));
-    const timeline = buildPlayTimeline({
-      plays,
-      eligibleIds,
-      eligibleCount: collection.totalEligibleCount,
-    });
-
-    res.json({
-      success: true,
-      data: { username, timeline, generatedAt: new Date().toISOString() },
-    });
+    res.json({ success: true, data });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message || "Failed to build the play history timeline",
-    });
+    res.status(502).json({ success: false, error: err.message || "Failed to load the play history" });
   }
 });
 

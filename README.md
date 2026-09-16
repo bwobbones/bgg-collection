@@ -102,11 +102,18 @@ reuses the rendered chart, and reloading the collection re-syncs it if (and only
 if) it is currently open.
 
 **Data source.** The collection API only exposes a per-game play *count*, so the
-history comes from the paginated `xmlapi2/plays` endpoint: every play ever
-logged is fetched (100 per page, four pages at a time, with backoff on 429/503),
-and each game's *first* play date is what drives the curve. Plays are matched
-against the currently eligible collection, so games you sold on are excluded and
-the numerator always agrees with the collection's own `numplays > 0` count.
+history comes from the paginated `xmlapi2/plays` endpoint. Each game's *first*
+play date is what drives the curve. Plays are matched against the currently
+eligible collection, so games you sold on are excluded and the numerator always
+agrees with the collection's own `numplays > 0` count.
+
+**Bounded paging (Workers subrequest limit).** A Worker invocation may only make
+50 subrequests on the free plan, and this account has 24 pages of plays — so the
+plays endpoint is **never walked server-side in one call**. `GET /api/plays/pages`
+returns at most 6 pages per invocation (hard cap 8, which keeps even the worst
+case with retries well under 50), and the browser walks the bundles in order and
+assembles the timeline locally with `public/vendor/playsTimeline.mjs`. Each page
+is cached in KV for 12 hours, so repeat loads make no BGG requests at all.
 
 **Denominator.** BoardGameGeek does not expose purchase dates (and this account
 has none set), so a historically accurate "share of what I owned at the time" is
@@ -115,15 +122,16 @@ buying more games lowers the earlier points, and the curve only rises as you log
 new games.
 
 ```
-GET /api/plays/timeline?username=<user>&includeExpansions=&includeExclusions=&forceRefresh=
+GET /api/plays/pages?username=<user>&from=<first page>&count=<pages, max 8>&forceRefresh=
 ```
 
-Returns a monthly series (`points: [{ date, playedCount, percentage }]`) plus a
-summary (`distinctPlayedGames`, `eligibleCount`, `totalPlays`, `firstPlayDate`,
-`lastPlayDate`, `years`). Results are cached in Cloudflare KV for 12 hours and
-invalidated whenever exclusions change. The chart never blocks the main view —
-the table renders first and the play history loads on demand — and it degrades to
-an inline message if the fetch fails or no plays are logged.
+Returns `{ plays: [{ date, objectId, quantity }], total, totalPages, from, count,
+cacheHits }` for that bundle of pages. The browser then computes the monthly
+series (`points: [{ date, playedCount, percentage }]`) plus a summary
+(`distinctPlayedGames`, `eligibleCount`, `totalPlays`, `firstPlayDate`,
+`lastPlayDate`, `years`). The chart never blocks the main view — the table
+renders first and the play history loads on demand — and it degrades to an
+inline message if the fetch fails or nothing matches the current view.
 
 The curve, axes, area fill, crosshair and tooltip are hand-built SVG in
 `public/app.js` (`renderPlayHistoryChart`) — no charting library is loaded.

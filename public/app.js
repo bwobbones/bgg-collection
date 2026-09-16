@@ -1425,42 +1425,75 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!playHistoryCard) return;
     const username = (loadedUsername || usernameInput.value).trim();
     if (!username) return;
+    if (!rawCollectionData || !rawCollectionData.items) return;
 
     const requestId = ++playHistoryRequestId;
     playHistoryShowLoading(forceRefresh ? "Refreshing play history from BGG…" : "Reading your BGG play history…");
 
-    // Large collections mean many pages of plays: reassure after a few seconds
     const slowHint = setTimeout(() => {
       if (requestId === playHistoryRequestId && playHistoryLoadingText) {
         playHistoryLoadingText.textContent = "Still reading — big play history, hang tight…";
       }
     }, 4000);
 
-    const params = new URLSearchParams({
-      username,
-      includeExpansions: includeExpansionsInput.checked ? "true" : "false",
-      includeExclusions: includeExclusionsInput && includeExclusionsInput.checked ? "true" : "false",
-    });
-    if (forceRefresh) params.set("forceRefresh", "true");
+    // BGG play pages are fetched in bounded bundles (Worker subrequest limits),
+    // so walk them here and build the timeline from the collection we already have.
+    const PAGES_PER_REQUEST = 6;
+    const MAX_BUNDLES = 25;
 
     try {
-      const res = await fetch(`/api/plays/timeline?${params.toString()}`, {
-        credentials: "include",
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok || !payload.success) {
-        throw new Error(payload.error || `Could not load play history (HTTP ${res.status})`);
-      }
-      if (requestId !== playHistoryRequestId) return; // superseded by a newer request
+      const { buildPlayTimeline } = await import("/vendor/playsTimeline.mjs");
+      const eligibleIds = new Set(rawCollectionData.items.map((i) => i.id).filter(Boolean));
+      const eligibleCount = rawCollectionData.totalEligibleCount || eligibleIds.size;
 
-      const timeline = payload.data.timeline || {};
-      playHistoryLoaded = true;
+      const plays = [];
+      let from = 1;
+      let totalPages = 1;
+
+      for (let bundle = 0; bundle < MAX_BUNDLES; bundle++) {
+        const params = new URLSearchParams({
+          username,
+          from: String(from),
+          count: String(PAGES_PER_REQUEST),
+        });
+        if (forceRefresh) params.set("forceRefresh", "true");
+
+        const res = await fetch(`/api/plays/pages?${params.toString()}`, {
+          credentials: "include",
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload.success) {
+          throw new Error(payload.error || `Could not load play history (HTTP ${res.status})`);
+        }
+        if (requestId !== playHistoryRequestId) return; // superseded by a newer request
+
+        const data = payload.data || {};
+        if (Array.isArray(data.plays)) plays.push(...data.plays);
+        totalPages = data.totalPages || 1;
+        from += data.count || PAGES_PER_REQUEST;
+
+        if (from > totalPages) break;
+        if (playHistoryLoadingText) {
+          playHistoryLoadingText.textContent = `Reading play history… page ${Math.min(from - 1, totalPages)} of ${totalPages}`;
+        }
+      }
+
+      if (requestId !== playHistoryRequestId) return;
+
+      const timeline = buildPlayTimeline({ plays, eligibleIds, eligibleCount });
+
       if (!timeline.points || timeline.points.length === 0) {
-        playHistoryShowMessage("No plays logged on BoardGameGeek yet.");
+        playHistoryLoaded = true;
+        playHistoryShowMessage(
+          plays.length === 0
+            ? "No plays logged on BoardGameGeek yet."
+            : "None of your logged plays are in this collection view. Try including exclusions or expansions."
+        );
         renderPlayHistoryChips(timeline);
         return;
       }
 
+      playHistoryLoaded = true;
       renderPlayHistoryChips(timeline);
       renderPlayHistoryChart(timeline);
     } catch (err) {
