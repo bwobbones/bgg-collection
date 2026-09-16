@@ -84,6 +84,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const playedStatsPctBadge = document.getElementById("playedStatsPctBadge");
   const playedStatsHint = document.getElementById("playedStatsHint");
 
+  // Play history chart elements
+  const playHistoryCard = document.getElementById("playHistoryCard");
+  const playHistoryChart = document.getElementById("playHistoryChart");
+  const playHistoryChips = document.getElementById("playHistoryChips");
+  const playHistoryLoading = document.getElementById("playHistoryLoading");
+  const playHistoryLoadingText = document.getElementById("playHistoryLoadingText");
+  const playHistoryMessage = document.getElementById("playHistoryMessage");
+  const playHistoryTooltip = document.getElementById("playHistoryTooltip");
+  const playHistoryBasis = document.getElementById("playHistoryBasis");
+  let playHistoryRequestId = 0;
+  let pendingForceRefresh = false;
+
   const resultsCard = document.getElementById("resultsCard");
   const resultsHeading = document.getElementById("resultsHeading");
   const resultsSummary = document.getElementById("resultsSummary");
@@ -1309,10 +1321,243 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsCard.classList.remove("hidden");
   }
 
+  // ---------------------------------------------------------------------------
+  // Play history: how the share of the collection played changed over time
+  // ---------------------------------------------------------------------------
+
+  const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  function formatMonthDay(isoDate) {
+    if (!isoDate) return "—";
+    const [y, m] = isoDate.split("-").map(Number);
+    return `${MONTH_NAMES[m - 1]} ${y}`;
+  }
+
+  function playHistoryShowLoading(message) {
+    if (!playHistoryCard) return;
+    playHistoryCard.classList.remove("hidden");
+    if (playHistoryLoading) playHistoryLoading.classList.remove("hidden");
+    if (playHistoryChart) playHistoryChart.classList.add("hidden");
+    if (playHistoryMessage) playHistoryMessage.classList.add("hidden");
+    if (playHistoryTooltip) playHistoryTooltip.classList.add("hidden");
+    if (playHistoryLoadingText) playHistoryLoadingText.textContent = message;
+  }
+
+  function playHistoryShowMessage(message) {
+    if (!playHistoryCard) return;
+    if (playHistoryLoading) playHistoryLoading.classList.add("hidden");
+    if (playHistoryChart) playHistoryChart.classList.add("hidden");
+    if (playHistoryTooltip) playHistoryTooltip.classList.add("hidden");
+    if (playHistoryMessage) {
+      playHistoryMessage.textContent = message;
+      playHistoryMessage.classList.remove("hidden");
+    }
+  }
+
+  async function loadPlayHistory({ forceRefresh = false } = {}) {
+    if (!playHistoryCard) return;
+    const username = (loadedUsername || usernameInput.value).trim();
+    if (!username) return;
+
+    const requestId = ++playHistoryRequestId;
+    playHistoryShowLoading(forceRefresh ? "Refreshing play history from BGG…" : "Reading your BGG play history…");
+
+    // Large collections mean many pages of plays: reassure after a few seconds
+    const slowHint = setTimeout(() => {
+      if (requestId === playHistoryRequestId && playHistoryLoadingText) {
+        playHistoryLoadingText.textContent = "Still reading — big play history, hang tight…";
+      }
+    }, 4000);
+
+    const params = new URLSearchParams({
+      username,
+      includeExpansions: includeExpansionsInput.checked ? "true" : "false",
+      includeExclusions: includeExclusionsInput && includeExclusionsInput.checked ? "true" : "false",
+    });
+    if (forceRefresh) params.set("forceRefresh", "true");
+
+    try {
+      const res = await fetch(`/api/plays/timeline?${params.toString()}`, {
+        credentials: "include",
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error || `Could not load play history (HTTP ${res.status})`);
+      }
+      if (requestId !== playHistoryRequestId) return; // superseded by a newer request
+
+      const timeline = payload.data.timeline || {};
+      if (!timeline.points || timeline.points.length === 0) {
+        playHistoryShowMessage("No plays logged on BoardGameGeek yet.");
+        renderPlayHistoryChips(timeline);
+        return;
+      }
+
+      renderPlayHistoryChips(timeline);
+      renderPlayHistoryChart(timeline);
+    } catch (err) {
+      if (requestId !== playHistoryRequestId) return;
+      playHistoryShowMessage(err.message || "Could not load your play history.");
+    } finally {
+      clearTimeout(slowHint);
+    }
+  }
+
+  function renderPlayHistoryChips(timeline) {
+    if (!playHistoryChips) return;
+    const chip = (label, value, tone) => {
+      const tones = {
+        emerald: "bg-emerald-50 text-emerald-800 border-emerald-200",
+        slate: "bg-slate-50 text-slate-700 border-slate-200",
+        amber: "bg-amber-50 text-amber-800 border-amber-200",
+      };
+      return `<span class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold ${tones[tone || "slate"]}">
+        <span class="opacity-70 font-semibold">${label}</span><span>${value}</span></span>`;
+    };
+
+    const parts = [];
+    if (timeline.eligibleCount) {
+      parts.push(chip("played", `${timeline.distinctPlayedGames}/${timeline.eligibleCount} (${timeline.playedPercentage}%)`, "emerald"));
+    }
+    if (timeline.totalPlays) {
+      parts.push(chip("plays logged", timeline.totalPlays.toLocaleString()));
+    }
+    if (timeline.firstPlayDate) {
+      parts.push(chip("first play", formatMonthDay(timeline.firstPlayDate), "amber"));
+    }
+    if (timeline.years) {
+      parts.push(chip("history", `${timeline.years} yrs`));
+    }
+    playHistoryChips.innerHTML = parts.join("");
+
+    if (playHistoryBasis) {
+      playHistoryBasis.textContent = timeline.eligibleCount
+        ? `${timeline.eligibleCount} games`
+        : "—";
+    }
+  }
+
+  // Hand-rolled responsive SVG chart (no charting dependency)
+  function renderPlayHistoryChart(timeline) {
+    if (!playHistoryChart) return;
+    const points = timeline.points || [];
+    const n = points.length;
+    if (n === 0) return;
+
+    const W = 820;
+    const H = 280;
+    const padL = 46;
+    const padR = 18;
+    const padT = 16;
+    const padB = 32;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+    const xAt = (i) => (n === 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW);
+    const yAt = (pct) => padT + plotH - (Math.max(0, Math.min(100, pct)) / 100) * plotH;
+
+    const linePath = points
+      .map((p, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(p.percentage).toFixed(1)}`)
+      .join(" ");
+    const areaPath = `${linePath} L${xAt(n - 1).toFixed(1)},${(padT + plotH).toFixed(1)} L${xAt(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`;
+
+    // Y gridlines at 0/25/50/75/100%
+    const gridLines = [0, 25, 50, 75, 100]
+      .map((pct) => {
+        const y = yAt(pct).toFixed(1);
+        return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#e2e8f0" stroke-width="1" ${pct === 0 ? "" : 'stroke-dasharray="3 4"'} />
+        <text x="${padL - 8}" y="${y}" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="end" dominant-baseline="middle">${pct}%</text>`;
+      })
+      .join("");
+
+    // X labels: first point of each year, thinned out so they never collide
+    const yearTicks = [];
+    let lastLabelX = -Infinity;
+    points.forEach((p, i) => {
+      const year = p.date.slice(0, 4);
+      const isYearStart = p.date.slice(5, 7) === "01" || i === 0;
+      if (!isYearStart) return;
+      if (yearTicks.some((t) => t.year === year)) return;
+      const x = xAt(i);
+      if (x - lastLabelX < 58) return;
+      lastLabelX = x;
+      yearTicks.push({ year, x });
+    });
+    const xLabels = yearTicks
+      .map(({ year, x }) => `<text x="${x.toFixed(1)}" y="${H - 10}" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle">${year}</text>`)
+      .join("");
+
+    const finalPct = points[n - 1].percentage;
+    const finalY = yAt(finalPct).toFixed(1);
+
+    playHistoryChart.innerHTML = `
+      <defs>
+        <linearGradient id="phFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#10b981" stop-opacity="0.38" />
+          <stop offset="100%" stop-color="#10b981" stop-opacity="0.03" />
+        </linearGradient>
+      </defs>
+      ${gridLines}
+      <path d="${areaPath}" fill="url(#phFill)" />
+      <path d="${linePath}" fill="none" stroke="#059669" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+      <line x1="${padL}" y1="${finalY}" x2="${W - padR}" y2="${finalY}" stroke="#10b981" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85" />
+      <circle cx="${xAt(n - 1).toFixed(1)}" cy="${finalY}" r="4.5" fill="#059669" stroke="#ffffff" stroke-width="2" />
+      <line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="#cbd5e1" stroke-width="1" />
+      ${xLabels}
+      <line id="phCrosshair" x1="0" y1="${padT}" x2="0" y2="${padT + plotH}" stroke="#059669" stroke-width="1" stroke-dasharray="3 3" opacity="0" />
+      <circle id="phMarker" cx="0" cy="0" r="4" fill="#059669" stroke="#ffffff" stroke-width="2" opacity="0" />
+      <rect id="phHitArea" x="${padL - 10}" y="${padT}" width="${plotW + 20}" height="${plotH}" fill="transparent" style="cursor:crosshair" />
+    `;
+
+    if (playHistoryLoading) playHistoryLoading.classList.add("hidden");
+    if (playHistoryMessage) playHistoryMessage.classList.add("hidden");
+    playHistoryChart.classList.remove("hidden");
+
+    // Hover crosshair + tooltip
+    const hitArea = playHistoryChart.querySelector("#phHitArea");
+    const crosshair = playHistoryChart.querySelector("#phCrosshair");
+    const marker = playHistoryChart.querySelector("#phMarker");
+
+    const hideHover = () => {
+      crosshair.setAttribute("opacity", "0");
+      marker.setAttribute("opacity", "0");
+      if (playHistoryTooltip) playHistoryTooltip.classList.add("hidden");
+    };
+
+    hitArea.addEventListener("mousemove", (event) => {
+      const rect = playHistoryChart.getBoundingClientRect();
+      if (!rect.width) return;
+      const svgX = ((event.clientX - rect.left) / rect.width) * W;
+      const ratio = n === 1 ? 0 : (svgX - padL) / plotW;
+      const index = Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1))));
+      const point = points[index];
+      const px = xAt(index);
+      const py = yAt(point.percentage);
+
+      crosshair.setAttribute("x1", px.toFixed(1));
+      crosshair.setAttribute("x2", px.toFixed(1));
+      crosshair.setAttribute("opacity", "0.55");
+      marker.setAttribute("cx", px.toFixed(1));
+      marker.setAttribute("cy", py.toFixed(1));
+      marker.setAttribute("opacity", "1");
+
+      if (playHistoryTooltip) {
+        playHistoryTooltip.innerHTML = `${formatMonthDay(point.date)} — <span class="text-emerald-300">${point.playedCount}</span> of ${timeline.eligibleCount} played (${point.percentage.toFixed(1)}%)`;
+        playHistoryTooltip.style.left = `${((px / W) * 100).toFixed(2)}%`;
+        playHistoryTooltip.style.top = `${((py / H) * 100).toFixed(2)}%`;
+        playHistoryTooltip.classList.remove("hidden");
+        playHistoryTooltip.classList.add("-mt-2");
+      }
+    });
+    hitArea.addEventListener("mouseleave", hideHover);
+  }
+
   // Fetch collection from server API (supports SSE stream with automatic fetch fallback)
   async function loadCollection(options = {}) {
     const { forceRefresh = false } = options;
     const username = usernameInput.value.trim();
+
+    // Remembered for the background play-history request kicked off on success
+    pendingForceRefresh = forceRefresh;
 
     if (!username) {
       usernameInput.focus();
@@ -1320,6 +1565,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resultsCard.classList.add("hidden");
       statsCard.classList.add("hidden");
       if (playedStatsCard) playedStatsCard.classList.add("hidden");
+      if (playHistoryCard) playHistoryCard.classList.add("hidden");
       return;
     }
 
@@ -1350,6 +1596,8 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
     if (playedStatsCard) playedStatsCard.classList.add("hidden");
+    if (playHistoryCard) playHistoryCard.classList.add("hidden");
+    playHistoryRequestId++; // ignore any in-flight play-history response
     tableBody.innerHTML = "";
     compactListText.value = "";
     jsonText.textContent = "";
@@ -1464,6 +1712,9 @@ document.addEventListener("DOMContentLoaded", () => {
         progressBox.classList.add("hidden");
         applyClientFilters();
       }, 400);
+
+      // Load the play-history chart in the background so it never blocks the table
+      loadPlayHistory({ forceRefresh: pendingForceRefresh });
 
       fetchIcon.classList.remove("animate-spin");
       if (refreshIcon) refreshIcon.classList.remove("animate-spin");
@@ -1665,5 +1916,6 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
     if (playedStatsCard) playedStatsCard.classList.add("hidden");
+    if (playHistoryCard) playHistoryCard.classList.add("hidden");
   }
 });

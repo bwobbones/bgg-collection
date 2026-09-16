@@ -25,6 +25,7 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
 - 💾 **Export to File**: Output directly to a file with `-o, --output <filepath>`.
 - 🎡 **Wheel of Fortune**: Spin the filtered collection to pick a random game, then share the spin to Discord as an animated GIF.
 - 📈 **Collection Metrics**: The web app shows a **Gold Games** card (share of the collection rated ≥ 7.2 with > 300 votes) and a **Played Games** card (share of the collection with at least one logged play, plus the unplayed count).
+- 📉 **Played Over Time Chart**: A dependency-free SVG chart showing how the share of the collection played grew month by month, built from every play ever logged on BGG.
 
 ## Installation
 
@@ -86,6 +87,38 @@ Both counts and percentages are computed server-side (`playedCount`,
 `unplayedCount`, `playedPercentage` alongside `goldCount`/`goldPercentage`) and
 returned with the collection payload. The client falls back to counting items
 itself if it receives a cached payload that predates these fields.
+
+## Played Over Time Chart
+
+Below the metric cards, a **Played Over Time** chart plots the cumulative share
+of the collection that had at least one logged play in each month.
+
+**Data source.** The collection API only exposes a per-game play *count*, so the
+history comes from the paginated `xmlapi2/plays` endpoint: every play ever
+logged is fetched (100 per page, four pages at a time, with backoff on 429/503),
+and each game's *first* play date is what drives the curve. Plays are matched
+against the currently eligible collection, so games you sold on are excluded and
+the numerator always agrees with the collection's own `numplays > 0` count.
+
+**Denominator.** BoardGameGeek does not expose purchase dates (and this account
+has none set), so a historically accurate "share of what I owned at the time" is
+impossible. The chart therefore divides by *today's* eligible collection size:
+buying more games lowers the earlier points, and the curve only rises as you log
+new games.
+
+```
+GET /api/plays/timeline?username=<user>&includeExpansions=&includeExclusions=&forceRefresh=
+```
+
+Returns a monthly series (`points: [{ date, playedCount, percentage }]`) plus a
+summary (`distinctPlayedGames`, `eligibleCount`, `totalPlays`, `firstPlayDate`,
+`lastPlayDate`, `years`). Results are cached in Cloudflare KV for 12 hours and
+invalidated whenever exclusions change. The chart loads in the background after
+the table renders, so a slow play history never blocks the main view, and it
+degrades to an inline message if the fetch fails.
+
+The curve, axes, area fill, crosshair and tooltip are hand-built SVG in
+`public/app.js` (`renderPlayHistoryChart`) — no charting library is loaded.
 
 ## Wheel of Fortune & Discord Sharing
 

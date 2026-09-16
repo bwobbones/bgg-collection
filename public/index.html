@@ -355,6 +355,37 @@
       </div>
     </div>
 
+    <!-- Play History Chart Card (share of collection played over time) -->
+    <div id="playHistoryCard" class="hidden season-card bg-white border border-emerald-200 rounded-2xl p-5 shadow-md space-y-3">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-lg">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-700">Played Over Time</h2>
+            <p class="text-sm font-bold text-slate-800">How much of your collection you had played, month by month</p>
+          </div>
+        </div>
+        <div id="playHistoryChips" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div id="playHistoryBody" class="relative">
+        <div id="playHistoryLoading" class="flex items-center justify-center gap-2 py-10 text-xs font-bold text-slate-500">
+          <i class="fa-solid fa-spinner animate-spin text-emerald-500"></i>
+          <span id="playHistoryLoadingText">Reading your BGG play history…</span>
+        </div>
+        <p id="playHistoryMessage" class="hidden py-10 text-center text-xs font-bold text-slate-500"></p>
+        <svg id="playHistoryChart" class="hidden w-full h-auto" viewBox="0 0 820 280" role="img" aria-label="Share of collection played over time"></svg>
+        <div id="playHistoryTooltip" class="hidden pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-lg"></div>
+      </div>
+
+      <p class="text-[11px] leading-relaxed text-slate-500">
+        Cumulative share of your current eligible collection (<span id="playHistoryBasis">—</span>) that had at least one logged play on BGG by each month.
+        BoardGameGeek has no purchase dates, so the denominator is today's collection size: buying more games lowers the earlier points, and games you no longer own are left out entirely.
+      </p>
+    </div>
+
     <!-- Welcome / Empty State Prompt -->
     <div id="welcomeCard" class="season-card bg-white border border-slate-200 rounded-2xl p-10 shadow-lg text-center space-y-3">
       <div class="w-16 h-16 bg-amber-50 text-amber-500 border border-amber-200 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-sm">

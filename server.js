@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { getProcessedCollection } from "./lib/collectionService.js";
 import { getExclusionsForUser } from "./lib/exclusions.js";
 import { shareSpinToDiscord } from "./lib/discord.js";
+import { fetchAllPlays, buildPlayTimeline } from "./lib/playsTimeline.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -240,6 +241,48 @@ app.post("/api/discord/spin", async (req, res) => {
     res.status(isConfigError ? 500 : 400).json({
       success: false,
       error: err.message || "Failed to share the spin result to Discord",
+    });
+  }
+});
+
+/**
+ * Play History Timeline: GET /api/plays/timeline
+ * Mirrors the Cloudflare Worker route so local development behaves the same.
+ */
+app.get("/api/plays/timeline", async (req, res) => {
+  const token = process.env.BGG_TOKEN;
+  const username = String(req.query.username || process.env.BGG_USERNAME || "").trim();
+  const includeExpansions = String(req.query.includeExpansions) === "true";
+  const includeExclusions = String(req.query.includeExclusions) === "true";
+
+  if (!username) {
+    return res.status(400).json({ success: false, error: "Username is required." });
+  }
+
+  try {
+    const collection = await getProcessedCollection({
+      username,
+      includeExpansions,
+      includeExclusions,
+      verbose: false,
+    });
+
+    const { plays } = await fetchAllPlays({ username, token });
+    const eligibleIds = new Set(collection.items.map((i) => i.id).filter(Boolean));
+    const timeline = buildPlayTimeline({
+      plays,
+      eligibleIds,
+      eligibleCount: collection.totalEligibleCount,
+    });
+
+    res.json({
+      success: true,
+      data: { username, timeline, generatedAt: new Date().toISOString() },
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to build the play history timeline",
     });
   }
 });

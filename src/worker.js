@@ -1,10 +1,11 @@
 import convert from "xml-js";
 import { getExclusionsForUser } from "../lib/exclusions.js";
 import { shareSpinToDiscord } from "../lib/discord.js";
+import { fetchAllPlays, buildPlayTimeline } from "../lib/playsTimeline.js";
 
 /**
  * Cloudflare Worker with Real-Time SSE Streaming & Cloudflare KV Caching
- * Handles /api/collection, /api/collection/stream, /api/exclusions, /api/discord/spin, /api/test
+ * Handles /api/collection, /api/collection/stream, /api/exclusions, /api/plays/timeline, /api/discord/spin, /api/test
  */
 
 function getAttr(node, attr) {
@@ -503,6 +504,11 @@ export default {
             await env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${targetUser}:1:0`);
             await env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${targetUser}:0:1`);
             await env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${targetUser}:1:1`);
+            // ...and the play-history timeline, which depends on the eligible set
+            await env.BGG_EXCLUSIONS_KV.delete(`cache:plays:${targetUser}:0:0`);
+            await env.BGG_EXCLUSIONS_KV.delete(`cache:plays:${targetUser}:1:0`);
+            await env.BGG_EXCLUSIONS_KV.delete(`cache:plays:${targetUser}:0:1`);
+            await env.BGG_EXCLUSIONS_KV.delete(`cache:plays:${targetUser}:1:1`);
           }
 
           return new Response(
@@ -677,7 +683,93 @@ export default {
       }
     }
 
-    // 6. Static Assets fallback (serves index.html, app.js, style.css, favicon.svg)
+    // 6. Play history timeline: GET /api/plays/timeline
+    // Walks the paginated BGG plays API and returns a monthly cumulative series of
+    // "share of the current collection played". Cached in KV for 12 hours.
+    if (url.pathname === "/api/plays/timeline") {
+      const token = env?.BGG_TOKEN || globalThis?.BGG_TOKEN || process?.env?.BGG_TOKEN || null;
+      const username = (url.searchParams.get("username") || env?.BGG_USERNAME || "").trim();
+      const includeExpansions = url.searchParams.get("includeExpansions") === "true";
+      const includeExclusions = url.searchParams.get("includeExclusions") === "true";
+      const forceRefresh = url.searchParams.get("forceRefresh") === "true";
+
+      if (!token) {
+        return new Response(
+          JSON.stringify({ success: false, error: "BGG_TOKEN is not configured in Cloudflare environment variables." }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!username) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Username is required." }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const normUser = username.toLowerCase();
+      const cacheKey = `cache:plays:${normUser}:${includeExpansions ? "1" : "0"}:${includeExclusions ? "1" : "0"}`;
+
+      if (!forceRefresh && env?.BGG_EXCLUSIONS_KV) {
+        try {
+          const cached = await env.BGG_EXCLUSIONS_KV.get(cacheKey, "json");
+          if (cached && cached.timeline) {
+            return new Response(JSON.stringify({ success: true, data: cached }), {
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+        } catch (e) {
+          console.warn("Play timeline cache read failed:", e.message);
+        }
+      }
+
+      try {
+        // The eligible collection comes from the (usually already warm) collection cache
+        const collection = await processBGGCollection(
+          { username, includeExpansions, includeExclusions, forceRefresh: false, token },
+          env,
+          null
+        );
+
+        const { plays } = await fetchAllPlays({ username, token });
+        const eligibleIds = new Set(collection.items.map((i) => i.id).filter(Boolean));
+        const timeline = buildPlayTimeline({
+          plays,
+          eligibleIds,
+          eligibleCount: collection.totalEligibleCount,
+        });
+
+        const data = {
+          username,
+          timeline,
+          generatedAt: new Date().toISOString(),
+        };
+
+        if (env?.BGG_EXCLUSIONS_KV) {
+          try {
+            await env.BGG_EXCLUSIONS_KV.put(cacheKey, JSON.stringify(data), {
+              expirationTtl: 43200, // 12 hours
+            });
+          } catch (e) {
+            console.warn("Play timeline cache write failed:", e.message);
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, data }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: err.message || "Failed to build the play history timeline",
+          }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // 7. Static Assets fallback (serves index.html, app.js, style.css, favicon.svg)
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
