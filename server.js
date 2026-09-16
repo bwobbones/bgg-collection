@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { getProcessedCollection } from "./lib/collectionService.js";
 import { getExclusionsForUser } from "./lib/exclusions.js";
+import { shareSpinToDiscord } from "./lib/discord.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,7 +12,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+// GIF payloads are base64 encoded in the request body, so allow a generous limit
+app.use(express.json({ limit: "16mb" }));
 
 /**
  * Cloudflare Access JWT Middleware
@@ -218,6 +220,28 @@ app.post("/api/exclusions", (req, res) => {
   const exclusions = Array.isArray(req.body.exclusions) ? req.body.exclusions : [];
   localExclusionsStore.set(normUser, exclusions);
   res.json({ success: true, username: normUser, exclusions, count: exclusions.length });
+});
+
+/**
+ * Discord Spin Result Sharing: POST /api/discord/spin
+ * Mirrors the Cloudflare Worker route so local development behaves the same.
+ */
+app.post("/api/discord/spin", async (req, res) => {
+  try {
+    const result = await shareSpinToDiscord({
+      webhookUrl: process.env.DISCORD_WEBHOOK_URL,
+      winner: req.body?.winner,
+      gifBase64: req.body?.gif,
+    });
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const isConfigError = /DISCORD_WEBHOOK_URL is not configured/.test(err.message || "");
+    res.status(isConfigError ? 500 : 400).json({
+      success: false,
+      error: err.message || "Failed to share the spin result to Discord",
+    });
+  }
 });
 
 app.listen(PORT, () => {

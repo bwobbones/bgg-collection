@@ -108,6 +108,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const winnerBestAt = document.getElementById("winnerBestAt");
   const winnerRating = document.getElementById("winnerRating");
   const winnerImgContainer = document.getElementById("winnerImgContainer");
+  const discordShareWrapper = document.getElementById("discordShareWrapper");
+  const shareSpinBtn = document.getElementById("shareSpinBtn");
+  const shareSpinLabel = document.getElementById("shareSpinLabel");
+  const discordShareStatus = document.getElementById("discordShareStatus");
+  let lastSpin = null; // { winner, startAngle, angleDelta, duration, numSlices } for the GIF export
+  let lastSpinAnimation = null; // animation params stashed by spinWheel()
 
   // Manage Exclusions Modal Elements
   const openExclusionsModalBtn = document.getElementById("openExclusionsModalBtn");
@@ -478,6 +484,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentWheelItems = filteredItems;
     wheelSubheading.textContent = `Spinning among ${filteredItems.length} selected games`;
     winnerCard.classList.add("hidden");
+    resetDiscordShareUI();
     spinModal.classList.remove("hidden");
     drawWheel();
   });
@@ -491,6 +498,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isSpinning || currentWheelItems.length === 0) return;
     spinWheel();
   });
+
+  if (shareSpinBtn) {
+    shareSpinBtn.addEventListener("click", () => sendSpinResultToDiscord());
+  }
 
   function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
@@ -603,73 +614,230 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Draw Graphical Wheel on HTML5 Canvas
-  function drawWheel() {
-    if (!ctx || currentWheelItems.length === 0) return;
+  // Wheel geometry is authored in this logical size; the live canvas uses it
+  // directly and the GIF exporter scales it down.
+  const WHEEL_BASE_SIZE = 420;
+
+  // Animated GIF export settings (kept modest so Discord uploads stay quick)
+  const GIF_SIZE = 360;
+  const GIF_FPS = 12;
+  const GIF_HOLD_MS = 1500;
+  // GIFs have no alpha channel, so transparent canvas pixels would snap to the
+  // nearest palette color (dark navy). Paint a light background instead.
+  const GIF_BACKGROUND = "#f8fafc";
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function hexToRgb(hex) {
+    const h = String(hex).replace("#", "");
+    return [
+      parseInt(h.slice(0, 2), 16),
+      parseInt(h.slice(2, 4), 16),
+      parseInt(h.slice(4, 6), 16),
+    ];
+  }
+
+  // Fixed palette for exported GIFs (seasonal wheel colors + UI chrome).
+  // Using one fixed palette instead of quantizing every frame is faster and
+  // keeps colors from flickering between frames.
+  function buildGifPalette() {
+    const colors = [
+      GIF_BACKGROUND,
+      "#0f172a",
+      "#cbd5e1",
+      "#f59e0b",
+      "#f43f5e",
+      ...(seasonalWheelPalettes[currentSeason] || seasonalWheelPalettes.summer),
+    ];
+    const seen = new Set();
+    const palette = [];
+    for (const color of colors) {
+      const rgb = hexToRgb(color);
+      const key = rgb.join(",");
+      if (!seen.has(key)) {
+        seen.add(key);
+        palette.push(rgb);
+      }
+    }
+    return palette;
+  }
+
+  function roundRectPath(targetCtx, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+    targetCtx.beginPath();
+    targetCtx.moveTo(x + radius, y);
+    targetCtx.lineTo(x + w - radius, y);
+    targetCtx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    targetCtx.lineTo(x + w, y + h - radius);
+    targetCtx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    targetCtx.lineTo(x + radius, y + h);
+    targetCtx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    targetCtx.lineTo(x, y + radius);
+    targetCtx.quadraticCurveTo(x, y, x, y + radius);
+    targetCtx.closePath();
+  }
+
+  function fitText(targetCtx, text, maxWidth) {
+    const full = String(text);
+    if (targetCtx.measureText(full).width <= maxWidth) return full;
+    let cut = full.length;
+    while (cut > 1) {
+      cut--;
+      const candidate = `${full.slice(0, cut)}…`;
+      if (targetCtx.measureText(candidate).width <= maxWidth) return candidate;
+    }
+    return "…";
+  }
+
+  // Winner banner drawn on top of the final GIF frame
+  function drawWinnerBanner(targetCtx, size, title, subtitle) {
+    targetCtx.save();
+    targetCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+    const padding = Math.round(size * 0.05);
+    const maxTextWidth = size - padding * 2;
+    const labelSize = Math.max(10, Math.round(size * 0.036));
+    const titleSize = Math.max(15, Math.round(size * 0.064));
+    const subSize = Math.max(10, Math.round(size * 0.037));
+
+    targetCtx.textAlign = "center";
+    targetCtx.textBaseline = "middle";
+
+    targetCtx.font = `900 ${titleSize}px sans-serif`;
+    const titleText = fitText(targetCtx, title, maxTextWidth);
+    const titleWidth = targetCtx.measureText(titleText).width;
+
+    let subText = null;
+    if (subtitle) {
+      targetCtx.font = `700 ${subSize}px sans-serif`;
+      subText = fitText(targetCtx, subtitle, maxTextWidth);
+    }
+
+    const lineGap = Math.round(labelSize * 0.5);
+    const chipWidth = Math.min(size - 6, Math.max(titleWidth, padding * 3) + padding * 1.4);
+    const chipHeight =
+      labelSize + titleSize + (subText ? subSize + lineGap : 0) + padding * 1.1;
+    const chipX = (size - chipWidth) / 2;
+    const chipY = size - chipHeight - Math.round(size * 0.045);
+
+    targetCtx.fillStyle = "rgba(15, 23, 42, 0.94)";
+    targetCtx.strokeStyle = "#f59e0b";
+    targetCtx.lineWidth = 2;
+    roundRectPath(targetCtx, chipX, chipY, chipWidth, chipHeight, Math.round(size * 0.035));
+    targetCtx.fill();
+    targetCtx.stroke();
+
+    let cursorY = chipY + padding * 0.55 + labelSize / 2;
+    targetCtx.fillStyle = "#f59e0b";
+    targetCtx.font = `900 ${labelSize}px sans-serif`;
+    targetCtx.fillText("WINNER", size / 2, cursorY);
+
+    cursorY += labelSize / 2 + lineGap + titleSize / 2;
+    targetCtx.fillStyle = "#ffffff";
+    targetCtx.font = `900 ${titleSize}px sans-serif`;
+    targetCtx.fillText(titleText, size / 2, cursorY);
+
+    if (subText) {
+      cursorY += titleSize / 2 + lineGap + subSize / 2;
+      targetCtx.fillStyle = "#cbd5e1";
+      targetCtx.font = `700 ${subSize}px sans-serif`;
+      targetCtx.fillText(subText, size / 2, cursorY);
+    }
+
+    targetCtx.restore();
+  }
+
+  // Draw the graphical wheel into any 2D context. Shared by the live canvas and
+  // the GIF exporter so the two can never drift apart.
+  function drawWheelTo(targetCtx, size, angle, options = {}) {
+    const items = options.items || currentWheelItems || [];
+    const numSlices = items.length;
+    if (!targetCtx || numSlices === 0) return;
 
     const palette = seasonalWheelPalettes[currentSeason] || seasonalWheelPalettes.summer;
-    const numSlices = currentWheelItems.length;
-    const arc = (2 * Math.PI) / numSlices;
-    const centerX = wheelCanvas.width / 2;
-    const centerY = wheelCanvas.height / 2;
+    const scale = size / WHEEL_BASE_SIZE;
+    const centerX = WHEEL_BASE_SIZE / 2;
+    const centerY = WHEEL_BASE_SIZE / 2;
     const outerRadius = centerX - 8;
     const innerRadius = 32;
+    const arc = (2 * Math.PI) / numSlices;
 
-    ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
+    targetCtx.setTransform(1, 0, 0, 1, 0, 0);
+    targetCtx.clearRect(0, 0, size, size);
+    if (options.background) {
+      targetCtx.fillStyle = options.background;
+      targetCtx.fillRect(0, 0, size, size);
+    }
+    targetCtx.save();
+    targetCtx.scale(scale, scale);
 
     for (let i = 0; i < numSlices; i++) {
-      const angle = currentAngle + i * arc;
+      const sliceAngle = angle + i * arc;
 
       // Fill Seasonal Slice
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, outerRadius, angle, angle + arc);
-      ctx.lineTo(centerX, centerY);
-      ctx.fillStyle = palette[i % palette.length];
-      ctx.fill();
-      ctx.strokeStyle = "#cbd5e1";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      targetCtx.beginPath();
+      targetCtx.arc(centerX, centerY, outerRadius, sliceAngle, sliceAngle + arc);
+      targetCtx.lineTo(centerX, centerY);
+      targetCtx.fillStyle = palette[i % palette.length];
+      targetCtx.fill();
+      targetCtx.strokeStyle = "#cbd5e1";
+      targetCtx.lineWidth = 1.5;
+      targetCtx.stroke();
 
       // Render Centered Title Text along Slice Angle
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(angle + arc / 2);
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "#0f172a";
-      ctx.font =
+      targetCtx.save();
+      targetCtx.translate(centerX, centerY);
+      targetCtx.rotate(sliceAngle + arc / 2);
+      targetCtx.textAlign = "center";
+      targetCtx.textBaseline = "middle";
+      targetCtx.fillStyle = "#0f172a";
+      targetCtx.font =
         numSlices > 50
           ? "bold 8px sans-serif"
           : numSlices > 25
           ? "bold 10px sans-serif"
           : "bold 12px sans-serif";
 
-      let title = currentWheelItems[i].name;
+      let title = items[i].name;
       const maxTextLen = numSlices > 40 ? 10 : numSlices > 20 ? 14 : 20;
       if (title.length > maxTextLen) {
         title = title.substring(0, maxTextLen - 2) + "..";
       }
 
       const midRadius = (innerRadius + outerRadius) / 2 + 10;
-      ctx.fillText(title, midRadius, 0);
-      ctx.restore();
+      targetCtx.fillText(title, midRadius, 0);
+      targetCtx.restore();
     }
 
     // Center Hub Circle
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
-    ctx.fillStyle = "#0f172a";
-    ctx.fill();
-    ctx.strokeStyle = "#f59e0b";
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    targetCtx.beginPath();
+    targetCtx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
+    targetCtx.fillStyle = "#0f172a";
+    targetCtx.fill();
+    targetCtx.strokeStyle = "#f59e0b";
+    targetCtx.lineWidth = 3;
+    targetCtx.stroke();
 
     // Center Dice Text / Icon
-    ctx.fillStyle = "#f59e0b";
-    ctx.font = "bold 16px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("🎲", centerX, centerY);
+    targetCtx.fillStyle = "#f59e0b";
+    targetCtx.font = "bold 16px sans-serif";
+    targetCtx.textAlign = "center";
+    targetCtx.textBaseline = "middle";
+    targetCtx.fillText("🎲", centerX, centerY);
+
+    targetCtx.restore();
+
+    if (options.banner) {
+      drawWinnerBanner(targetCtx, size, options.banner, options.bannerSubtitle);
+    }
+  }
+
+  // Draw Graphical Wheel on HTML5 Canvas
+  function drawWheel() {
+    if (!ctx || !wheelCanvas) return;
+    drawWheelTo(ctx, wheelCanvas.width, currentAngle);
   }
 
   // Spin Wheel Physics Animation
@@ -678,6 +846,8 @@ document.addEventListener("DOMContentLoaded", () => {
     doSpinBtn.disabled = true;
     doSpinBtn.classList.add("opacity-50", "cursor-not-allowed");
     winnerCard.classList.add("hidden");
+    resetDiscordShareUI();
+    lastSpin = null;
 
     const numSlices = currentWheelItems.length;
     const arc = (2 * Math.PI) / numSlices;
@@ -694,9 +864,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const duration = 4500;
     const startTimestamp = performance.now();
 
-    function easeOutCubic(t) {
-      return 1 - Math.pow(1 - t, 3);
-    }
+    // Remember the animation so the spin can be re-rendered as an animated GIF
+    lastSpinAnimation = {
+      startAngle,
+      angleDelta,
+      duration,
+      numSlices,
+      items: currentWheelItems.slice(),
+    };
 
     function animate(now) {
       const elapsed = now - startTimestamp;
@@ -758,6 +933,161 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     winnerCard.classList.remove("hidden");
+
+    // Enable the Discord share button for this result
+    lastSpin = lastSpinAnimation ? { ...lastSpinAnimation, winner } : null;
+    resetDiscordShareUI();
+    if (discordShareWrapper) {
+      discordShareWrapper.classList.remove("hidden");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Discord sharing: render the spin as an animated GIF and post it
+  // ---------------------------------------------------------------------------
+
+  function spinWinnerSubtitle(winner) {
+    const parts = [];
+    if (winner.bestAt) {
+      parts.push(
+        winner.isCommunityBest !== false
+          ? `Best at ${winner.bestAt}`
+          : `${winner.bestAt} players (publisher)`
+      );
+    }
+    if (winner.averageRating) parts.push(`Avg ${winner.averageRating.toFixed(1)}`);
+    return parts.join("  •  ");
+  }
+
+  function resetDiscordShareUI() {
+    if (discordShareWrapper) discordShareWrapper.classList.add("hidden");
+    if (shareSpinBtn) {
+      shareSpinBtn.disabled = false;
+      shareSpinBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    }
+    if (shareSpinLabel) shareSpinLabel.textContent = "Send Spin to Discord";
+    if (discordShareStatus) {
+      discordShareStatus.classList.add("hidden");
+      discordShareStatus.textContent = "";
+    }
+  }
+
+  function setDiscordShareStatus(message, isError = false) {
+    if (!discordShareStatus) return;
+    discordShareStatus.textContent = message;
+    discordShareStatus.className = `text-center text-xs font-bold ${
+      isError ? "text-rose-600" : "text-slate-600"
+    }`;
+    discordShareStatus.classList.remove("hidden");
+  }
+
+  // Re-render the recorded spin into a GIF at a fixed frame rate so the export
+  // is smooth regardless of the display refresh rate during the live spin.
+  async function buildSpinGif(spin) {
+    const { GIFEncoder, applyPalette } = await import("/vendor/gifenc.esm.js");
+    const canvas = document.createElement("canvas");
+    canvas.width = GIF_SIZE;
+    canvas.height = GIF_SIZE;
+    const gifCtx = canvas.getContext("2d", { willReadFrequently: true });
+
+    const palette = buildGifPalette();
+    const gif = GIFEncoder();
+    const frameDelay = Math.round(1000 / GIF_FPS);
+    const spinFrames = Math.max(2, Math.round(spin.duration / frameDelay));
+
+    const captureFrame = (angle, banner) => {
+      drawWheelTo(gifCtx, GIF_SIZE, angle, {
+        items: spin.items,
+        background: GIF_BACKGROUND,
+        banner,
+        bannerSubtitle: banner ? spinWinnerSubtitle(spin.winner) : null,
+      });
+      const { data } = gifCtx.getImageData(0, 0, GIF_SIZE, GIF_SIZE);
+      return applyPalette(new Uint8Array(data.buffer), palette);
+    };
+
+    for (let i = 0; i < spinFrames; i++) {
+      const t = i / (spinFrames - 1);
+      const angle = spin.startAngle + spin.angleDelta * easeOutCubic(t);
+      const indexed = captureFrame(angle, null);
+      gif.writeFrame(indexed, GIF_SIZE, GIF_SIZE, { palette, delay: frameDelay });
+
+      // Yield occasionally so the button/status stay responsive during encoding
+      if (i % 10 === 0) await new Promise((r) => setTimeout(r, 0));
+    }
+
+    // Final frame holds on the winner banner
+    const finalAngle = spin.startAngle + spin.angleDelta;
+    const finalIndexed = captureFrame(finalAngle, spin.winner.name);
+    gif.writeFrame(finalIndexed, GIF_SIZE, GIF_SIZE, {
+      palette,
+      delay: GIF_HOLD_MS,
+    });
+
+    gif.finish();
+    return new Blob([gif.bytes()], { type: "image/gif" });
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        resolve(result.slice(result.indexOf(",") + 1));
+      };
+      reader.onerror = () => reject(reader.error || new Error("Failed to read GIF data"));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function sendSpinResultToDiscord() {
+    if (!lastSpin || !lastSpin.winner || !shareSpinBtn || shareSpinBtn.disabled) return;
+
+    const winner = lastSpin.winner;
+    shareSpinBtn.disabled = true;
+    shareSpinBtn.classList.add("opacity-50", "cursor-not-allowed");
+    if (shareSpinLabel) shareSpinLabel.textContent = "Rendering GIF…";
+    setDiscordShareStatus("Drawing the wheel frames…");
+
+    try {
+      const blob = await buildSpinGif(lastSpin);
+      const sizeMb = (blob.size / (1024 * 1024)).toFixed(2);
+
+      if (shareSpinLabel) shareSpinLabel.textContent = "Uploading…";
+      setDiscordShareStatus(`Uploading animated GIF (${sizeMb} MB) to Discord…`);
+
+      const res = await fetch("/api/discord/spin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          gif: await blobToBase64(blob),
+          winner: {
+            id: winner.id,
+            name: winner.name,
+            year: winner.year,
+            bestAt: winner.bestAt,
+            isCommunityBest: winner.isCommunityBest,
+            averageRating: winner.averageRating,
+            numPlays: winner.numPlays,
+          },
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error || `Discord share failed (HTTP ${res.status})`);
+      }
+
+      if (shareSpinLabel) shareSpinLabel.textContent = "Sent to Discord!";
+      setDiscordShareStatus("🎉 Spin result posted to Discord!");
+    } catch (err) {
+      if (shareSpinLabel) shareSpinLabel.textContent = "Retry Send to Discord";
+      setDiscordShareStatus(err.message || "Could not send to Discord.", true);
+    } finally {
+      shareSpinBtn.disabled = false;
+      shareSpinBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    }
   }
 
   // Client-side Player Count Matcher

@@ -23,6 +23,7 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
   - Ascending or descending (`--desc`).
   - Limit top N items (`-l, --limit <number>`).
 - 💾 **Export to File**: Output directly to a file with `-o, --output <filepath>`.
+- 🎡 **Wheel of Fortune**: Spin the filtered collection to pick a random game, then share the spin to Discord as an animated GIF.
 
 ## Installation
 
@@ -41,6 +42,17 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
    ```env
    BGG_TOKEN=your_bgg_api_bearer_token
    BGG_USERNAME=your_bgg_username
+   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+   ```
+
+   `DISCORD_WEBHOOK_URL` is only needed for the web app's "Send Spin to Discord"
+   button. Create one in Discord via **Server Settings → Integrations → Webhooks**.
+
+   For the Cloudflare Worker deployment, store it as a secret instead of a var so
+   it is never committed:
+
+   ```bash
+   npx wrangler secret put DISCORD_WEBHOOK_URL
    ```
 
 ## Running the Web Application
@@ -56,6 +68,38 @@ npm run dev
 ```
 
 Open `http://localhost:3000` in your browser.
+
+## Wheel of Fortune & Discord Sharing
+
+The web app can spin your currently filtered collection and post the result to a
+Discord channel as an animated GIF.
+
+1. Fetch a collection and narrow it down with the rating presets, player-count
+   pills, search, min rating, and "Unplayed Only" filters.
+2. Click **Open Wheel of Fortune** and hit **SPIN THE WHEEL!**
+3. Once a winner is announced, click **Send Spin to Discord**.
+
+The browser re-renders the spin onto an offscreen canvas at a fixed 12 fps and
+encodes it into an animated GIF with [gifenc](https://github.com/mattdesl/gifenc)
+(vendored at `public/vendor/gifenc.esm.js`), so the GIF is smooth regardless of
+the display refresh rate. The GIF is then POSTed to `/api/discord/spin`, which
+forwards it to the configured Discord webhook — the webhook URL stays server-side
+and is never exposed to the browser.
+
+The final frame holds on a winner banner for 1.5s and the Discord message
+includes an embed with the game's Best At player count, average rating, year, and
+your play count, plus a link to its BGG page.
+
+| Layer | File |
+| --- | --- |
+| GIF rendering + upload | `public/app.js` (`buildSpinGif`, `sendSpinResultToDiscord`) |
+| Shared Discord posting | `lib/discord.js` |
+| Worker route (`POST /api/discord/spin`) | `src/worker.js` |
+| Local dev route | `server.js` |
+
+If `DISCORD_WEBHOOK_URL` is not configured the button reports a clear error and
+nothing is posted. GIFs above 8 MB are rejected to stay within Discord's upload
+limit; the current export is ~0.7 MB for 55 frames at 360×360.
 
 ## Usage
 

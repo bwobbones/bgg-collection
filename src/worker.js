@@ -1,9 +1,10 @@
 import convert from "xml-js";
 import { getExclusionsForUser } from "../lib/exclusions.js";
+import { shareSpinToDiscord } from "../lib/discord.js";
 
 /**
  * Cloudflare Worker with Real-Time SSE Streaming & Cloudflare KV Caching
- * Handles /api/collection, /api/collection/stream, /api/exclusions, /api/test
+ * Handles /api/collection, /api/collection/stream, /api/exclusions, /api/discord/spin, /api/test
  */
 
 function getAttr(node, attr) {
@@ -439,6 +440,9 @@ export default {
             tokenLength: token ? token.length : 0,
             tokenPrefix: token ? `${token.slice(0, 4)}...` : null,
             hasKV: Boolean(env?.BGG_EXCLUSIONS_KV),
+            hasDiscordWebhook: Boolean(
+              env?.DISCORD_WEBHOOK_URL || globalThis?.DISCORD_WEBHOOK_URL
+            ),
             bggStatus,
             bggError,
             sampleData,
@@ -619,7 +623,49 @@ export default {
       }
     }
 
-    // 5. Static Assets fallback (serves index.html, app.js, style.css, favicon.svg)
+    // 5. Spin result sharing: POST /api/discord/spin
+    // Accepts a base64 animated GIF + winner metadata and posts it to a Discord
+    // webhook. The webhook URL lives only in Worker config/secrets so it is
+    // never exposed to the browser.
+    if (url.pathname === "/api/discord/spin") {
+      if (request.method !== "POST") {
+        return new Response(
+          JSON.stringify({ success: false, error: "POST required." }),
+          { status: 405, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      try {
+        const body = await request.json();
+        const result = await shareSpinToDiscord({
+          webhookUrl:
+            env?.DISCORD_WEBHOOK_URL ||
+            globalThis?.DISCORD_WEBHOOK_URL ||
+            process?.env?.DISCORD_WEBHOOK_URL ||
+            null,
+          winner: body?.winner,
+          gifBase64: body?.gif,
+        });
+
+        return new Response(JSON.stringify({ success: true, ...result }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        const isConfigError = /DISCORD_WEBHOOK_URL is not configured/.test(err.message || "");
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: err.message || "Failed to share the spin result to Discord",
+          }),
+          {
+            status: isConfigError ? 500 : 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
+    // 6. Static Assets fallback (serves index.html, app.js, style.css, favicon.svg)
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
