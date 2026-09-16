@@ -33,6 +33,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("searchInput");
   const minRatingInput = document.getElementById("minRatingInput");
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
+  const unplayedOnlyInput = document.getElementById("unplayedOnlyInput");
+  const unplayedCountBadge = document.getElementById("unplayedCountBadge");
   const includeExclusionsInput = document.getElementById("includeExclusionsInput");
   const exclusionsCountBadge = document.getElementById("exclusionsCountBadge");
   const exclusionsOptionWrapper = document.getElementById("exclusionsOptionWrapper");
@@ -268,6 +270,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (includeExclusionsInput) {
     includeExclusionsInput.addEventListener("change", () => {
       loadCollection({ forceRefresh: true });
+    });
+  }
+
+  // "Unplayed Only" is a pure client-side filter, so no refetch is needed
+  if (unplayedOnlyInput) {
+    unplayedOnlyInput.addEventListener("change", () => {
+      applyClientFilters();
     });
   }
 
@@ -904,6 +913,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // 4. Filter to Unplayed Only (0 recorded plays)
+    const unplayedCount = rawCollectionData.items.filter(
+      (i) => (i.numPlays || 0) === 0
+    ).length;
+    if (unplayedCountBadge) {
+      unplayedCountBadge.textContent = String(unplayedCount);
+    }
+    const unplayedOnly = !!(unplayedOnlyInput && unplayedOnlyInput.checked);
+    if (unplayedOnly) {
+      items = items.filter((i) => (i.numPlays || 0) === 0);
+    }
+
     filteredItems = items;
 
     // Render Gold Stats Card
@@ -915,7 +936,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update Results Heading
     const modeLabel = activeMode ? ` [preset: ${activeMode}]` : "";
-    resultsHeading.textContent = `Collection Results for ${rawCollectionData.username}${modeLabel}`;
+    const unplayedLabel = unplayedOnly ? " [unplayed only]" : "";
+    resultsHeading.textContent = `Collection Results for ${rawCollectionData.username}${modeLabel}${unplayedLabel}`;
 
     renderTable();
     compactListText.value = generateCompactListClient(filteredItems);

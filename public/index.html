@@ -169,6 +169,13 @@
             </label>
           </div>
 
+          <div class="flex items-center pt-4">
+            <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold" title="Only show games with 0 recorded plays">
+              <input type="checkbox" id="unplayedOnlyInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
+              Unplayed Only (<span id="unplayedCountBadge" class="text-amber-600 font-black">0</span> with 0 plays)
+            </label>
+          </div>
+
           <!-- Exclusions Management & Toggle (Always accessible) -->
           <div id="exclusionsOptionWrapper" class="flex items-center gap-2 pt-4">
             <label id="includeExclusionsLabel" class="hidden inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
