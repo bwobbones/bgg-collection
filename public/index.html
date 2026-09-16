@@ -334,8 +334,9 @@
       </div>
     </div>
 
-    <!-- Played Games Metric Card (whole collection) -->
-    <div id="playedStatsCard" class="hidden season-card bg-gradient-to-r from-emerald-500/10 via-emerald-100/40 to-white border border-emerald-300 rounded-2xl p-5 shadow-md">
+    <!-- Played Games Metric Card (whole collection) - click to toggle the play history chart -->
+    <div id="playedStatsCard" role="button" tabindex="0" aria-expanded="false" aria-controls="playHistoryCard" title="Show or hide the played-over-time chart"
+      class="hidden season-card bg-gradient-to-r from-emerald-500/10 via-emerald-100/40 to-white border border-emerald-300 rounded-2xl p-5 shadow-md cursor-pointer select-none transition hover:shadow-lg hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-4">
           <div class="p-3.5 bg-emerald-500 text-white rounded-2xl text-2xl shadow-md">
@@ -351,6 +352,11 @@
             62.1%
           </span>
           <p id="playedStatsHint" class="text-xs text-slate-500 font-medium mt-1">Percentage of collection with at least 1 logged play</p>
+          <span id="playHistoryToggle" class="pointer-events-none mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 transition">
+            <i class="fa-solid fa-chart-line text-emerald-600"></i>
+            <span id="playHistoryToggleLabel">Show played-over-time chart</span>
+            <i id="playHistoryToggleChevron" class="fa-solid fa-chevron-down text-[9px] transition-transform"></i>
+          </span>
         </div>
       </div>
     </div>

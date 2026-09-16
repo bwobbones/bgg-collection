@@ -93,8 +93,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const playHistoryMessage = document.getElementById("playHistoryMessage");
   const playHistoryTooltip = document.getElementById("playHistoryTooltip");
   const playHistoryBasis = document.getElementById("playHistoryBasis");
+  const playHistoryToggleLabel = document.getElementById("playHistoryToggleLabel");
+  const playHistoryToggleChevron = document.getElementById("playHistoryToggleChevron");
   let playHistoryRequestId = 0;
   let pendingForceRefresh = false;
+  // The chart is collapsed until the Played Games card is clicked, so its
+  // (fairly expensive) play-history fetch only happens on demand.
+  let playHistoryExpanded = false;
+  let playHistoryLoaded = false;
 
   const resultsCard = document.getElementById("resultsCard");
   const resultsHeading = document.getElementById("resultsHeading");
@@ -299,6 +305,23 @@ document.addEventListener("DOMContentLoaded", () => {
   if (unplayedOnlyInput) {
     unplayedOnlyInput.addEventListener("change", () => {
       applyClientFilters();
+    });
+  }
+
+  // The Played Games card doubles as the toggle for the play-history chart
+  if (playedStatsCard) {
+    playedStatsCard.addEventListener("click", () => {
+      setPlayHistoryExpanded(!playHistoryExpanded, {
+        forceRefresh: pendingForceRefresh,
+      });
+    });
+    playedStatsCard.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+        event.preventDefault();
+        setPlayHistoryExpanded(!playHistoryExpanded, {
+          forceRefresh: pendingForceRefresh,
+        });
+      }
     });
   }
 
@@ -1333,6 +1356,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${MONTH_NAMES[m - 1]} ${y}`;
   }
 
+  function updatePlayHistoryToggle() {
+    const card = document.getElementById("playedStatsCard");
+    if (card) card.setAttribute("aria-expanded", playHistoryExpanded ? "true" : "false");
+    if (playHistoryToggleLabel) {
+      playHistoryToggleLabel.textContent = playHistoryExpanded
+        ? "Hide played-over-time chart"
+        : "Show played-over-time chart";
+    }
+    if (playHistoryToggleChevron) {
+      playHistoryToggleChevron.classList.toggle("rotate-180", playHistoryExpanded);
+    }
+  }
+
   function playHistoryShowLoading(message) {
     if (!playHistoryCard) return;
     playHistoryCard.classList.remove("hidden");
@@ -1352,6 +1388,37 @@ document.addEventListener("DOMContentLoaded", () => {
       playHistoryMessage.textContent = message;
       playHistoryMessage.classList.remove("hidden");
     }
+  }
+
+  // Expand/collapse the chart from the Played Games card. The play history is
+  // fetched lazily on first expand (and re-fetched whenever the collection is
+  // reloaded), so a collapsed chart costs nothing.
+  function setPlayHistoryExpanded(expanded, { forceRefresh = false } = {}) {
+    playHistoryExpanded = expanded;
+    updatePlayHistoryToggle();
+
+    if (!expanded) {
+      if (playHistoryCard) playHistoryCard.classList.add("hidden");
+      playHistoryRequestId++; // drop any in-flight response
+      return;
+    }
+
+    if (playHistoryLoaded) {
+      if (playHistoryCard) playHistoryCard.classList.remove("hidden");
+      return;
+    }
+
+    loadPlayHistory({ forceRefresh });
+  }
+
+  function resetPlayHistoryUI() {
+    playHistoryRequestId++;
+    playHistoryExpanded = false;
+    playHistoryLoaded = false;
+    if (playHistoryCard) playHistoryCard.classList.add("hidden");
+    if (playHistoryChart) playHistoryChart.innerHTML = "";
+    if (playHistoryChips) playHistoryChips.innerHTML = "";
+    updatePlayHistoryToggle();
   }
 
   async function loadPlayHistory({ forceRefresh = false } = {}) {
@@ -1387,6 +1454,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (requestId !== playHistoryRequestId) return; // superseded by a newer request
 
       const timeline = payload.data.timeline || {};
+      playHistoryLoaded = true;
       if (!timeline.points || timeline.points.length === 0) {
         playHistoryShowMessage("No plays logged on BoardGameGeek yet.");
         renderPlayHistoryChips(timeline);
@@ -1565,7 +1633,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resultsCard.classList.add("hidden");
       statsCard.classList.add("hidden");
       if (playedStatsCard) playedStatsCard.classList.add("hidden");
-      if (playHistoryCard) playHistoryCard.classList.add("hidden");
+      resetPlayHistoryUI();
       return;
     }
 
@@ -1596,8 +1664,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
     if (playedStatsCard) playedStatsCard.classList.add("hidden");
-    if (playHistoryCard) playHistoryCard.classList.add("hidden");
-    playHistoryRequestId++; // ignore any in-flight play-history response
+    resetPlayHistoryUI();
     tableBody.innerHTML = "";
     compactListText.value = "";
     jsonText.textContent = "";
@@ -1713,8 +1780,12 @@ document.addEventListener("DOMContentLoaded", () => {
         applyClientFilters();
       }, 400);
 
-      // Load the play-history chart in the background so it never blocks the table
-      loadPlayHistory({ forceRefresh: pendingForceRefresh });
+      // The play-history chart is fetched lazily when the Played Games card is
+      // expanded, so only refresh it here if it is currently open.
+      playHistoryLoaded = false;
+      if (playHistoryExpanded) {
+        loadPlayHistory({ forceRefresh: pendingForceRefresh });
+      }
 
       fetchIcon.classList.remove("animate-spin");
       if (refreshIcon) refreshIcon.classList.remove("animate-spin");
@@ -1916,6 +1987,6 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
     if (playedStatsCard) playedStatsCard.classList.add("hidden");
-    if (playHistoryCard) playHistoryCard.classList.add("hidden");
+    resetPlayHistoryUI();
   }
 });

@@ -91,7 +91,15 @@ itself if it receives a cached payload that predates these fields.
 ## Played Over Time Chart
 
 Below the metric cards, a **Played Over Time** chart plots the cumulative share
-of the collection that had at least one logged play in each month.
+of the collection that had at least one logged play in each month. Click the
+**Played Games Metric** card to expand or collapse it (it is a real button:
+keyboard-accessible via <kbd>Enter</kbd>/<kbd>Space</kbd>, with `aria-expanded`
+kept in sync).
+
+The chart is collapsed by default and its play history is fetched **lazily on
+first expand**, so a collapsed chart costs no BGG requests. Expanding again
+reuses the rendered chart, and reloading the collection re-syncs it if (and only
+if) it is currently open.
 
 **Data source.** The collection API only exposes a per-game play *count*, so the
 history comes from the paginated `xmlapi2/plays` endpoint: every play ever
@@ -113,9 +121,9 @@ GET /api/plays/timeline?username=<user>&includeExpansions=&includeExclusions=&fo
 Returns a monthly series (`points: [{ date, playedCount, percentage }]`) plus a
 summary (`distinctPlayedGames`, `eligibleCount`, `totalPlays`, `firstPlayDate`,
 `lastPlayDate`, `years`). Results are cached in Cloudflare KV for 12 hours and
-invalidated whenever exclusions change. The chart loads in the background after
-the table renders, so a slow play history never blocks the main view, and it
-degrades to an inline message if the fetch fails.
+invalidated whenever exclusions change. The chart never blocks the main view —
+the table renders first and the play history loads on demand — and it degrades to
+an inline message if the fetch fails or no plays are logged.
 
 The curve, axes, area fill, crosshair and tooltip are hand-built SVG in
 `public/app.js` (`renderPlayHistoryChart`) — no charting library is loaded.
