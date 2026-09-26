@@ -1309,11 +1309,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 4. Filter by Min Weight (complexity). Games with no weight data are dropped
-    // while this filter is active, since we cannot confirm they meet the threshold.
+    // 4. Filter by Min Weight (complexity). A value of 0 or less means "no filter".
+    // Games with no weight data are dropped while this filter is active, since we
+    // cannot confirm they meet the threshold.
     if (minWeightInput && minWeightInput.value) {
       const minW = parseFloat(minWeightInput.value);
-      if (!isNaN(minW)) {
+      if (!isNaN(minW) && minW > 0) {
         items = items.filter((i) => i.weight !== null && i.weight !== undefined && i.weight >= minW);
       }
     }
