@@ -42,6 +42,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const includeExclusionsLabel = document.getElementById("includeExclusionsLabel");
   const manageExclusionsBtnText = document.getElementById("manageExclusionsBtnText");
   const welcomeCard = document.getElementById("welcomeCard");
+  const recentUsernamesRow = document.getElementById("recentUsernamesRow");
+  const recentUsernamesList = document.getElementById("recentUsernamesList");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
   const refreshBtn = document.getElementById("refreshBtn");
@@ -543,6 +545,86 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (shareSpinBtn) {
     shareSpinBtn.addEventListener("click", () => sendSpinResultToDiscord());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recent BGG usernames (persisted in localStorage)
+  // ---------------------------------------------------------------------------
+  const RECENT_USERS_KEY = "bgg_recent_usernames";
+  const RECENT_USERS_MAX = 10;
+
+  function loadRecentUsernames() {
+    try {
+      const raw = localStorage.getItem(RECENT_USERS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((u) => typeof u === "string" && u.trim()) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveRecentUsernames(list) {
+    try {
+      localStorage.setItem(RECENT_USERS_KEY, JSON.stringify(list));
+    } catch (e) {
+      /* storage unavailable (private mode) — recents simply won't persist */
+    }
+  }
+
+  // Move `name` to the front, de-duplicated case-insensitively (keeps newest casing)
+  function addRecentUsername(name) {
+    const clean = String(name || "").trim();
+    if (!clean) return;
+
+    const existing = loadRecentUsernames();
+    const deduped = existing.filter((u) => u.toLowerCase() !== clean.toLowerCase());
+    const updated = [clean, ...deduped].slice(0, RECENT_USERS_MAX);
+
+    saveRecentUsernames(updated);
+    renderRecentUsernames();
+  }
+
+  function renderRecentUsernames() {
+    if (!recentUsernamesRow || !recentUsernamesList) return;
+
+    const users = loadRecentUsernames();
+    const current = usernameInput.value.trim().toLowerCase();
+
+    if (users.length === 0) {
+      recentUsernamesRow.classList.add("hidden");
+      recentUsernamesList.innerHTML = "";
+      return;
+    }
+
+    recentUsernamesList.innerHTML = users
+      .map((user) => {
+        const isCurrent = user.toLowerCase() === current;
+        const cls = isCurrent
+          ? "font-bold text-amber-600 underline decoration-dotted underline-offset-2 cursor-pointer"
+          : "font-semibold text-slate-500 hover:text-amber-600 hover:underline underline-offset-2 cursor-pointer transition";
+        return `<button type="button" class="recent-user-btn ${cls}" data-username="${user.replace(/"/g, "&quot;")}" title="Load ${user}'s collection">${user}</button>`;
+      })
+      .join(", ");
+
+    recentUsernamesRow.classList.remove("hidden");
+  }
+
+  // Delegate clicks: populate the field, then run the query
+  if (recentUsernamesList) {
+    recentUsernamesList.addEventListener("click", (e) => {
+      const btn = e.target.closest(".recent-user-btn");
+      if (!btn) return;
+
+      const user = btn.dataset.username;
+      if (!user) return;
+
+      usernameInput.value = user;
+      renderRecentUsernames();
+
+      // No forceRefresh: the worker serves warm users straight from KV cache,
+      // so hopping between friends' collections is near-instant.
+      loadCollection();
+    });
   }
 
   function capitalize(s) {
@@ -1785,6 +1867,9 @@ document.addEventListener("DOMContentLoaded", () => {
       loadedIncludeExpansions = includeExpansions;
       loadedIncludeExclusions = includeExclusions;
 
+      // Only record usernames that actually resolved, so typos are never stored
+      addRecentUsername(username);
+
       // Manage User Exclusions visibility and manage button
       const userExclList = Array.isArray(rawCollectionData.userExclusions)
         ? rawCollectionData.userExclusions
@@ -2050,6 +2135,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Apply initial seasonal theme
   applySeasonTheme(currentSeason);
+
+  // Restore previously searched usernames from localStorage
+  renderRecentUsernames();
 
   // If username is already filled, load; otherwise show welcome card and wait for user input
   if (usernameInput.value.trim()) {
