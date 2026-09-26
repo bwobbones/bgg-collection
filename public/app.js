@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const usernameInput = document.getElementById("usernameInput");
   const searchInput = document.getElementById("searchInput");
   const minRatingInput = document.getElementById("minRatingInput");
+  const minWeightInput = document.getElementById("minWeightInput");
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
   const unplayedOnlyInput = document.getElementById("unplayedOnlyInput");
   const unplayedCountBadge = document.getElementById("unplayedCountBadge");
@@ -129,6 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const winnerTitle = document.getElementById("winnerTitle");
   const winnerBestAt = document.getElementById("winnerBestAt");
   const winnerRating = document.getElementById("winnerRating");
+  const winnerWeight = document.getElementById("winnerWeight");
   const winnerImgContainer = document.getElementById("winnerImgContainer");
   const discordShareWrapper = document.getElementById("discordShareWrapper");
   const shareSpinBtn = document.getElementById("shareSpinBtn");
@@ -271,6 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Client-side Filters Trigger
   searchInput.addEventListener("input", () => applyClientFilters());
   minRatingInput.addEventListener("input", () => applyClientFilters());
+  if (minWeightInput) minWeightInput.addEventListener("input", () => applyClientFilters());
 
   // Reload collection only on Enter key or when input loses focus (change)
   usernameInput.addEventListener("keydown", (e) => {
@@ -618,6 +621,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Format complexity weight (1–5 scale) with colour banding
+  function formatWeightBadge(weight) {
+    if (weight === null || weight === undefined || isNaN(weight)) {
+      return `<span class="text-slate-300 font-bold" title="No weight data available">—</span>`;
+    }
+    const val = parseFloat(weight);
+    const text = val.toFixed(1);
+
+    if (val >= 4.0) {
+      return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-purple-100 text-purple-700 border border-purple-300" title="Heavy / complex">${text}</span>`;
+    }
+    if (val >= 3.0) {
+      return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-indigo-100 text-indigo-700 border border-indigo-300" title="Medium-heavy">${text}</span>`;
+    }
+    if (val >= 2.0) {
+      return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-sky-100 text-sky-700 border border-sky-300" title="Medium-light">${text}</span>`;
+    }
+    return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-slate-100 text-slate-600 border border-slate-300" title="Light">${text}</span>`;
+  }
+
   function updateProgressUI(pct, stepName, msg) {
     const safePct = Math.min(100, Math.max(0, pct || 0));
     progressBar.style.width = `${safePct}%`;
@@ -960,6 +983,10 @@ document.addEventListener("DOMContentLoaded", () => {
     winnerRating.textContent = winner.averageRating
       ? `Avg: ${winner.averageRating.toFixed(1)}`
       : "Avg: N/A";
+    if (winnerWeight) {
+      winnerWeight.textContent =
+        winner.weight != null ? `Weight: ${winner.weight.toFixed(1)}` : "Weight: N/A";
+    }
 
     if (winner.thumbnail) {
       winnerImgContainer.innerHTML = `
@@ -1279,6 +1306,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const minR = parseFloat(minRatingInput.value);
       if (!isNaN(minR)) {
         items = items.filter((i) => (i.averageRating ?? 0) >= minR);
+      }
+    }
+
+    // 4. Filter by Min Weight (complexity). Games with no weight data are dropped
+    // while this filter is active, since we cannot confirm they meet the threshold.
+    if (minWeightInput && minWeightInput.value) {
+      const minW = parseFloat(minWeightInput.value);
+      if (!isNaN(minW)) {
+        items = items.filter((i) => i.weight !== null && i.weight !== undefined && i.weight >= minW);
       }
     }
 
@@ -1736,6 +1772,7 @@ document.addEventListener("DOMContentLoaded", () => {
       username,
       includeExpansions: includeExpansions ? "true" : "false",
       includeExclusions: includeExclusions ? "true" : "false",
+      forceRefresh: forceRefresh ? "true" : "false",
     });
 
     let sseReceivedAnyData = false;
@@ -1959,14 +1996,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderTable() {
     if (!filteredItems) {
-      tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
       return;
     }
 
     resultsSummary.textContent = `Showing ${filteredItems.length} matching items (Total in collection: ${rawCollectionData?.totalItems || 0})`;
 
     if (filteredItems.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
       return;
     }
 
@@ -2002,6 +2039,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="py-3.5 px-4">${titleHtml}</td>
             <td class="py-3.5 px-4">${bestAtBadge}</td>
             <td class="py-3.5 px-4 text-center">${formatRatingBadge(item.averageRating)}</td>
+            <td class="py-3.5 px-4 text-center">${formatWeightBadge(item.weight)}</td>
             <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-700">${item.numPlays || 0}</td>
           </tr>
         `;

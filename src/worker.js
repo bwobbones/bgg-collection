@@ -20,24 +20,6 @@ function getText(node) {
   return null;
 }
 
-function extractBestAt(item) {
-  const ps = item["poll-summary"];
-  if (ps) {
-    const list = Array.isArray(ps) ? ps : [ps];
-    for (const p of list) {
-      if (getAttr(p, "name") === "suggested_numplayers" || !getAttr(p, "name")) {
-        const results = Array.isArray(p.result) ? p.result : p.result ? [p.result] : [];
-        const best = results.find((r) => getAttr(r, "name") === "bestwith");
-        if (best && getAttr(best, "value")) {
-          const val = getAttr(best, "value").replace(/^Best with\s+/i, "").trim();
-          if (val && val !== "(Undetermined)") return val;
-        }
-      }
-    }
-  }
-  return null;
-}
-
 // Ultra-fast regex parser: 34x faster than xml-js, consumes near 0ms CPU
 function fastExtractThingDetails(xmlStr) {
   const map = new Map();
@@ -56,7 +38,16 @@ function fastExtractThingDetails(xmlStr) {
         bestAt = val;
       }
     }
-    map.set(id, { type, bestAt });
+
+    // Average community weight (complexity) on a 1–5 scale. Only present in the Thing API.
+    let weight = null;
+    const weightMatch = body.match(/<averageweight\s+value="([^"]+)"/);
+    if (weightMatch) {
+      const parsed = parseFloat(weightMatch[1]);
+      if (!isNaN(parsed) && parsed > 0) weight = parsed;
+    }
+
+    map.set(id, { type, bestAt, weight });
   }
   return map;
 }
@@ -205,6 +196,7 @@ async function processBGGCollection(params, env, onProgress) {
       numPlays,
       averageRating: avg || null,
       usersRated: usersRated || 0,
+      weight: null, // populated from the Thing API (collection XML has no weight)
       bestAt: null,
       thumbnail,
     };
@@ -302,6 +294,7 @@ async function processBGGCollection(params, env, onProgress) {
     const d = thingDetails.get(item.id);
     const commBest = d?.bestAt && d.bestAt !== "(Undetermined)" ? d.bestAt : null;
     if (d?.type) item.realType = d.type;
+    if (d?.weight != null) item.weight = d.weight;
 
     if (commBest) {
       item.bestAt = commBest;
@@ -321,6 +314,8 @@ async function processBGGCollection(params, env, onProgress) {
 
   const step2Duration = ((Date.now() - step2Start) / 1000).toFixed(2);
   await addLog(2, `Step 2 Complete: Enriched ${ids.length} games in ${step2Duration}s (${commBestCount} community polls, ${pubFallbackCount} publisher fallbacks).`);
+  const weightedCount = items.filter((i) => i.weight != null).length;
+  await addLog(2, `Weight Data: ${weightedCount}/${ids.length} games have a community complexity weight (1–5 scale).`);
 
   await addLog(3, `Step 3 Starting: Applying base filters, exclusions, and gold metrics...`);
   if (onProgress) {
