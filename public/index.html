@@ -181,6 +181,38 @@
             </div>
           </div>
 
+          <div class="w-[4.5rem]">
+            <label for="yearFromInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Year From
+            </label>
+            <input type="number" id="yearFromInput" step="1" min="1000" max="2100" placeholder="any"
+              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+          </div>
+
+          <div class="w-[4.5rem]">
+            <label for="yearToInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Year To
+            </label>
+            <input type="number" id="yearToInput" step="1" min="1000" max="2100" placeholder="any"
+              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+          </div>
+
+          <div class="w-44">
+            <label for="sortSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Sort By
+            </label>
+            <select id="sortSelect"
+              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 transition cursor-pointer">
+              <option value="name">Name (A → Z)</option>
+              <option value="year-desc">Year (newest first)</option>
+              <option value="year-asc">Year (oldest first)</option>
+              <option value="rating-desc">Rating (highest first)</option>
+              <option value="weight-desc">Weight (heaviest first)</option>
+              <option value="weight-asc">Weight (lightest first)</option>
+              <option value="plays-desc">Plays (most first)</option>
+            </select>
+          </div>
+
           <div class="flex items-center pt-4">
             <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
               <input type="checkbox" id="includeExpansionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
@@ -474,6 +506,7 @@
               <th class="py-3.5 px-4 w-12 text-center">#</th>
               <th class="py-3.5 px-4 w-16">Cover</th>
               <th class="py-3.5 px-4">Title</th>
+              <th class="py-3.5 px-4 w-16 text-center">Year</th>
               <th class="py-3.5 px-4 w-36">Best At</th>
               <th class="py-3.5 px-4 w-24 text-center">Avg Rating</th>
               <th class="py-3.5 px-4 w-24 text-center">Weight</th>

@@ -33,6 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("searchInput");
   const minRatingInput = document.getElementById("minRatingInput");
   const minWeightInput = document.getElementById("minWeightInput");
+  const yearFromInput = document.getElementById("yearFromInput");
+  const yearToInput = document.getElementById("yearToInput");
+  const sortSelect = document.getElementById("sortSelect");
   const includeExpansionsInput = document.getElementById("includeExpansionsInput");
   const unplayedOnlyInput = document.getElementById("unplayedOnlyInput");
   const unplayedCountBadge = document.getElementById("unplayedCountBadge");
@@ -281,6 +284,9 @@ document.addEventListener("DOMContentLoaded", () => {
   searchInput.addEventListener("input", () => applyClientFilters());
   minRatingInput.addEventListener("input", () => applyClientFilters());
   if (minWeightInput) minWeightInput.addEventListener("input", () => applyClientFilters());
+  if (yearFromInput) yearFromInput.addEventListener("input", () => applyClientFilters());
+  if (yearToInput) yearToInput.addEventListener("input", () => applyClientFilters());
+  if (sortSelect) sortSelect.addEventListener("change", () => applyClientFilters());
 
   // Reload collection only on Enter key or when input loses focus (change)
   usernameInput.addEventListener("keydown", (e) => {
@@ -1500,6 +1506,53 @@ document.addEventListener("DOMContentLoaded", () => {
       items = items.filter((i) => (i.numPlays || 0) === 0);
     }
 
+    // 5. Filter by year range. Blank fields mean "no bound". Either bound can be
+    // used alone, and games with no year are dropped only while a bound is set.
+    const yearFromRaw = yearFromInput ? yearFromInput.value.trim() : "";
+    const yearToRaw = yearToInput ? yearToInput.value.trim() : "";
+    const yearFrom = yearFromRaw === "" ? null : parseInt(yearFromRaw, 10);
+    const yearTo = yearToRaw === "" ? null : parseInt(yearToRaw, 10);
+
+    if (yearFrom !== null && !isNaN(yearFrom)) {
+      items = items.filter((i) => i.year != null && i.year >= yearFrom);
+    }
+    if (yearTo !== null && !isNaN(yearTo)) {
+      items = items.filter((i) => i.year != null && i.year <= yearTo);
+    }
+
+    // 6. Sort the filtered set. Null values always sort to the end regardless of
+    // direction, so "newest first" never buries unscored games in the middle.
+    const sortKey = sortSelect ? sortSelect.value : "name";
+    const nullLast = (a, b, direction) => {
+      const aMissing = a == null;
+      const bMissing = b == null;
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      if (a === b) return 0;
+      return a < b ? -direction : direction;
+    };
+
+    items.sort((a, b) => {
+      switch (sortKey) {
+        case "year-desc":
+          return nullLast(a.year, b.year, -1) || a.name.localeCompare(b.name);
+        case "year-asc":
+          return nullLast(a.year, b.year, 1) || a.name.localeCompare(b.name);
+        case "rating-desc":
+          return nullLast(a.averageRating, b.averageRating, -1) || a.name.localeCompare(b.name);
+        case "weight-desc":
+          return nullLast(a.weight, b.weight, -1) || a.name.localeCompare(b.name);
+        case "weight-asc":
+          return nullLast(a.weight, b.weight, 1) || a.name.localeCompare(b.name);
+        case "plays-desc":
+          return nullLast(a.numPlays ?? 0, b.numPlays ?? 0, -1) || a.name.localeCompare(b.name);
+        case "name":
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
     filteredItems = items;
 
     // Any filter change invalidates the current page position
@@ -2172,7 +2225,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderTable() {
     if (!filteredItems) {
-      tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
       if (paginationBar) paginationBar.classList.add("hidden");
       return;
     }
@@ -2191,7 +2244,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsSummary.textContent = `Showing ${total} matching items${pagingNote} (Total in collection: ${rawCollectionData?.totalItems || 0})`;
 
     if (total === 0) {
-      tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
       renderPagination(0);
       return;
     }
@@ -2227,6 +2280,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="py-3.5 px-4 text-center text-xs text-slate-400 font-mono font-bold">${globalIndex}</td>
             <td class="py-3.5 px-4">${img}</td>
             <td class="py-3.5 px-4">${titleHtml}</td>
+            <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-500">${item.year ?? "—"}</td>
             <td class="py-3.5 px-4">${bestAtBadge}</td>
             <td class="py-3.5 px-4 text-center">${formatRatingBadge(item.averageRating)}</td>
             <td class="py-3.5 px-4 text-center">${formatWeightBadge(item.weight)}</td>
