@@ -484,6 +484,22 @@
             <!-- Table Rows dynamically injected here -->
           </tbody>
         </table>
+
+        <!-- Pagination controls (only shown when results exceed one page) -->
+        <div id="paginationBar" class="hidden flex-wrap items-center justify-between gap-3 pt-4 mt-2 border-t border-slate-100">
+          <span id="paginationInfo" class="text-xs text-slate-500 font-semibold"></span>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="pagePrevBtn"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition">
+              <i class="fa-solid fa-chevron-left text-[10px] mr-1"></i> Prev
+            </button>
+            <div id="pageNumberButtons" class="flex items-center gap-1"></div>
+            <button type="button" id="pageNextBtn"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition">
+              Next <i class="fa-solid fa-chevron-right text-[10px] ml-1"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Tab Content 2: Compact List View -->

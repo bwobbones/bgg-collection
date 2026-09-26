@@ -109,6 +109,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const resultsHeading = document.getElementById("resultsHeading");
   const resultsSummary = document.getElementById("resultsSummary");
   const tableBody = document.getElementById("tableBody");
+  const paginationBar = document.getElementById("paginationBar");
+  const paginationInfo = document.getElementById("paginationInfo");
+  const pagePrevBtn = document.getElementById("pagePrevBtn");
+  const pageNextBtn = document.getElementById("pageNextBtn");
+  const pageNumberButtons = document.getElementById("pageNumberButtons");
   const compactListText = document.getElementById("compactListText");
   const jsonText = document.getElementById("jsonText");
   const copyListBtn = document.getElementById("copyListBtn");
@@ -624,6 +629,88 @@ document.addEventListener("DOMContentLoaded", () => {
       // No forceRefresh: the worker serves warm users straight from KV cache,
       // so hopping between friends' collections is near-instant.
       loadCollection();
+    });
+  }
+
+  // Table pagination — render at most this many rows per page
+  const PAGE_SIZE = 200;
+  let currentPage = 1;
+
+  // Build a compact page-number window, e.g. 1 … 4 5 6 … 12
+  function buildPageWindow(totalPages, page) {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const pages = new Set([1, totalPages, page, page - 1, page + 1]);
+    const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+
+    const withGaps = [];
+    let prev = 0;
+    for (const p of sorted) {
+      if (prev && p - prev > 1) withGaps.push("...");
+      withGaps.push(p);
+      prev = p;
+    }
+    return withGaps;
+  }
+
+  function renderPagination(totalItems) {
+    if (!paginationBar) return;
+
+    const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+
+    // Nothing to page through — hide the whole bar
+    if (totalPages <= 1) {
+      paginationBar.classList.add("hidden");
+      return;
+    }
+
+    paginationBar.classList.remove("hidden");
+
+    const start = (currentPage - 1) * PAGE_SIZE + 1;
+    const end = Math.min(currentPage * PAGE_SIZE, totalItems);
+    if (paginationInfo) {
+      paginationInfo.textContent = `Showing ${start}\u2013${end} of ${totalItems} games`;
+    }
+
+    if (pagePrevBtn) pagePrevBtn.disabled = currentPage === 1;
+    if (pageNextBtn) pageNextBtn.disabled = currentPage === totalPages;
+
+    if (pageNumberButtons) {
+      pageNumberButtons.innerHTML = buildPageWindow(totalPages, currentPage)
+        .map((entry) => {
+          if (entry === "...") {
+            return `<span class="px-1 text-xs font-bold text-slate-400 select-none">…</span>`;
+          }
+          const isActive = entry === currentPage;
+          const cls = isActive
+            ? "bg-amber-500 border-amber-500 text-white shadow-sm"
+            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100";
+          return `<button type="button" class="page-num-btn px-2.5 py-1.5 rounded-lg text-xs font-bold border ${cls} transition" data-page="${entry}">${entry}</button>`;
+        })
+        .join("");
+    }
+  }
+
+  function goToPage(page) {
+    const totalPages = Math.max(1, Math.ceil((filteredItems?.length || 0) / PAGE_SIZE));
+    const next = Math.min(Math.max(1, page), totalPages);
+    if (next === currentPage) return;
+    currentPage = next;
+    renderTable();
+    // Keep the top of the results in view rather than stranding the user mid-list
+    if (resultsCard) resultsCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  if (pagePrevBtn) pagePrevBtn.addEventListener("click", () => goToPage(currentPage - 1));
+  if (pageNextBtn) pageNextBtn.addEventListener("click", () => goToPage(currentPage + 1));
+  if (pageNumberButtons) {
+    pageNumberButtons.addEventListener("click", (e) => {
+      const btn = e.target.closest(".page-num-btn");
+      if (!btn) return;
+      const target = parseInt(btn.dataset.page, 10);
+      if (!isNaN(target)) goToPage(target);
     });
   }
 
@@ -1415,6 +1502,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     filteredItems = items;
 
+    // Any filter change invalidates the current page position
+    currentPage = 1;
+
     // Render Gold Stats Card
     if (rawCollectionData.totalEligibleCount > 0) {
       statsCard.classList.remove("hidden");
@@ -2083,18 +2173,32 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderTable() {
     if (!filteredItems) {
       tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
+      if (paginationBar) paginationBar.classList.add("hidden");
       return;
     }
 
-    resultsSummary.textContent = `Showing ${filteredItems.length} matching items (Total in collection: ${rawCollectionData?.totalItems || 0})`;
+    const total = filteredItems.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-    if (filteredItems.length === 0) {
+    // Filters can shrink the result set below the current page — clamp back in range
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const offset = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = filteredItems.slice(offset, offset + PAGE_SIZE);
+
+    const pagingNote = totalPages > 1 ? ` (page ${currentPage} of ${totalPages})` : "";
+    resultsSummary.textContent = `Showing ${total} matching items${pagingNote} (Total in collection: ${rawCollectionData?.totalItems || 0})`;
+
+    if (total === 0) {
       tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
+      renderPagination(0);
       return;
     }
 
-    tableBody.innerHTML = filteredItems
+    tableBody.innerHTML = pageItems
       .map((item, idx) => {
+        const globalIndex = offset + idx + 1;
         const bggUrl = `https://boardgamegeek.com/boardgame/${item.id}`;
 
         const img = item.thumbnail
@@ -2120,7 +2224,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return `
           <tr class="hover:bg-slate-50 transition">
-            <td class="py-3.5 px-4 text-center text-xs text-slate-400 font-mono font-bold">${idx + 1}</td>
+            <td class="py-3.5 px-4 text-center text-xs text-slate-400 font-mono font-bold">${globalIndex}</td>
             <td class="py-3.5 px-4">${img}</td>
             <td class="py-3.5 px-4">${titleHtml}</td>
             <td class="py-3.5 px-4">${bestAtBadge}</td>
@@ -2131,6 +2235,8 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       })
       .join("");
+
+    renderPagination(total);
   }
 
   // Apply initial seasonal theme
