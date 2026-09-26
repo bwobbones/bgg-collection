@@ -158,86 +158,101 @@
           </div>
         </div>
 
-        <!-- 3. Fine-Tune Options (Min Rating, Min Weight, Expansions & Exclusions) -->
-        <div class="flex flex-wrap items-center gap-6 pt-3 border-t border-slate-200/60">
-          <div class="w-36">
-            <label for="minRatingInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Min Rating
-            </label>
-            <input type="number" id="minRatingInput" step="0.1" min="0" max="10" placeholder="e.g. 7.0"
-              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
-          </div>
+        <!-- 3. Refine & Sort + Options -->
+        <div class="pt-4 border-t border-slate-200/60 space-y-5">
 
-          <div class="w-36">
-            <label for="minWeightInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Min Weight
-            </label>
-            <div class="relative">
-              <input type="number" id="minWeightInput" value="2.0" step="0.1" min="0" max="5" placeholder="e.g. 3.0"
-                class="season-input w-full bg-white border border-slate-200 rounded-xl pl-3 pr-14 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
-              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
-                / 5
-              </span>
+          <!-- Group A: numeric thresholds and sort, on a stable responsive grid -->
+          <div>
+            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+              Refine &amp; Sort
+            </span>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+              <div>
+                <label for="minRatingInput" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Min Rating
+                </label>
+                <input type="number" id="minRatingInput" step="0.1" min="0" max="10" placeholder="any"
+                  class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 transition">
+              </div>
+
+              <div>
+                <label for="minWeightInput" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Min Weight
+                </label>
+                <div class="relative">
+                  <input type="number" id="minWeightInput" value="2.0" step="0.1" min="0" max="5" placeholder="any"
+                    class="season-input w-full bg-white border border-slate-200 rounded-xl pl-3 pr-10 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                  <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                    /5
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label for="yearFromInput" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Year From
+                </label>
+                <input type="number" id="yearFromInput" step="1" min="1000" max="2100" placeholder="any"
+                  class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+              </div>
+
+              <div>
+                <label for="yearToInput" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Year To
+                </label>
+                <input type="number" id="yearToInput" step="1" min="1000" max="2100" placeholder="any"
+                  class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+              </div>
+
+              <div class="col-span-2 sm:col-span-2 lg:col-span-2">
+                <label for="sortSelect" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Sort By
+                </label>
+                <select id="sortSelect"
+                  class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 transition cursor-pointer">
+                  <option value="name">Name (A → Z)</option>
+                  <option value="year-desc">Year (newest first)</option>
+                  <option value="year-asc">Year (oldest first)</option>
+                  <option value="rating-desc">Rating (highest first)</option>
+                  <option value="weight-desc">Weight (heaviest first)</option>
+                  <option value="weight-asc">Weight (lightest first)</option>
+                  <option value="plays-desc">Plays (most first)</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div class="w-[4.5rem]">
-            <label for="yearFromInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Year From
-            </label>
-            <input type="number" id="yearFromInput" step="1" min="1000" max="2100" placeholder="any"
-              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+          <!-- Group B: on/off options as chips, plus the exclusions manager -->
+          <div>
+            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+              Options
+            </span>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="filter-chip">
+                <input type="checkbox" id="includeExpansionsInput" class="w-3.5 h-3.5 rounded border-slate-300">
+                <span>Include Expansions</span>
+              </label>
+
+              <label class="filter-chip" title="Only show games with 0 recorded plays">
+                <input type="checkbox" id="unplayedOnlyInput" class="w-3.5 h-3.5 rounded border-slate-300">
+                <span>Unplayed Only (<span id="unplayedCountBadge" class="font-black">0</span>)</span>
+              </label>
+
+              <div id="exclusionsOptionWrapper" class="flex flex-wrap items-center gap-2">
+                <label id="includeExclusionsLabel" class="filter-chip hidden">
+                  <input type="checkbox" id="includeExclusionsInput" class="w-3.5 h-3.5 rounded border-slate-300">
+                  <span>Include Excluded Games (<span id="exclusionsCountBadge" class="font-black">0</span>)</span>
+                </label>
+
+                <button type="button" id="openExclusionsModalBtn" title="Manage exclusions for this user"
+                  class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                  <i class="fa-solid fa-gear text-amber-600"></i>
+                  <span id="manageExclusionsBtnText">Manage Exclusions</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="w-[4.5rem]">
-            <label for="yearToInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Year To
-            </label>
-            <input type="number" id="yearToInput" step="1" min="1000" max="2100" placeholder="any"
-              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
-          </div>
-
-          <div class="w-44">
-            <label for="sortSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Sort By
-            </label>
-            <select id="sortSelect"
-              class="season-input w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 transition cursor-pointer">
-              <option value="name">Name (A → Z)</option>
-              <option value="year-desc">Year (newest first)</option>
-              <option value="year-asc">Year (oldest first)</option>
-              <option value="rating-desc">Rating (highest first)</option>
-              <option value="weight-desc">Weight (heaviest first)</option>
-              <option value="weight-asc">Weight (lightest first)</option>
-              <option value="plays-desc">Plays (most first)</option>
-            </select>
-          </div>
-
-          <div class="flex items-center pt-4">
-            <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
-              <input type="checkbox" id="includeExpansionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
-              Include Expansions
-            </label>
-          </div>
-
-          <div class="flex items-center pt-4">
-            <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold" title="Only show games with 0 recorded plays">
-              <input type="checkbox" id="unplayedOnlyInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
-              Unplayed Only (<span id="unplayedCountBadge" class="text-amber-600 font-black">0</span> with 0 plays)
-            </label>
-          </div>
-
-          <!-- Exclusions Management & Toggle (Always accessible) -->
-          <div id="exclusionsOptionWrapper" class="flex items-center gap-2 pt-4">
-            <label id="includeExclusionsLabel" class="hidden inline-flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-bold">
-              <input type="checkbox" id="includeExclusionsInput" class="w-4 h-4 text-amber-500 bg-slate-100 border-slate-300 rounded focus:ring-amber-500">
-              <span>Include Excluded Games (<span id="exclusionsCountBadge" class="text-amber-600 font-black">0 excluded</span>)</span>
-            </label>
-            <button id="openExclusionsModalBtn" title="Manage Exclusions for this user" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
-              <i class="fa-solid fa-gear text-amber-600"></i>
-              <span id="manageExclusionsBtnText">Manage Exclusions</span>
-            </button>
-          </div>
         </div>
 
       </div>
