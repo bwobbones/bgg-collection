@@ -1077,6 +1077,47 @@ document.addEventListener("DOMContentLoaded", () => {
     drawWheelTo(ctx, wheelCanvas.width, currentAngle);
   }
 
+  // Snapshot the active filter state as a human-readable description of the
+  // spin pool. Captured when the spin starts so the Discord message reflects the
+  // pool that was actually spun, not whatever the filters happen to be later.
+  function captureWheelQuery() {
+    const parts = [];
+
+    if (activeMode === "gold") parts.push("Gold (avg \u2265 7.2, 300+ ratings)");
+    else if (activeMode === "shit") parts.push("Shit (avg \u2264 7.1)");
+    else parts.push("All games");
+
+    const pcs = getSelectedPlayerCounts();
+    if (pcs.length > 0) parts.push(`Best at ${pcs.join(", ")}`);
+
+    if (minRatingInput && minRatingInput.value) {
+      parts.push(`Min rating ${minRatingInput.value}`);
+    }
+    if (minWeightInput && minWeightInput.value) {
+      const w = parseFloat(minWeightInput.value);
+      if (!isNaN(w) && w > 0) parts.push(`Min weight ${w.toFixed(1)}`);
+    }
+
+    const yf = yearFromInput ? yearFromInput.value.trim() : "";
+    const yt = yearToInput ? yearToInput.value.trim() : "";
+    if (yf && yt) parts.push(`Years ${yf}\u2013${yt}`);
+    else if (yf) parts.push(`Year \u2265 ${yf}`);
+    else if (yt) parts.push(`Year \u2264 ${yt}`);
+
+    const term = searchInput ? searchInput.value.trim() : "";
+    if (term) parts.push(`Title matching \u201c${term}\u201d`);
+
+    if (unplayedOnlyInput && unplayedOnlyInput.checked) parts.push("Unplayed only");
+    if (includeExpansionsInput && includeExpansionsInput.checked) parts.push("Including expansions");
+    if (includeExclusionsInput && includeExclusionsInput.checked) parts.push("Including excluded games");
+
+    return {
+      summary: parts.join(" \u00b7 "),
+      poolSize: currentWheelItems.length,
+      totalEligible: rawCollectionData?.totalEligibleCount ?? null,
+    };
+  }
+
   // Spin Wheel Physics Animation
   function spinWheel() {
     isSpinning = true;
@@ -1108,6 +1149,7 @@ document.addEventListener("DOMContentLoaded", () => {
       duration,
       numSlices,
       items: currentWheelItems.slice(),
+      query: captureWheelQuery(),
     };
 
     function animate(now) {
@@ -1303,6 +1345,7 @@ document.addEventListener("DOMContentLoaded", () => {
         credentials: "include",
         body: JSON.stringify({
           gif: await blobToBase64(blob),
+          query: lastSpin.query || null,
           winner: {
             id: winner.id,
             name: winner.name,

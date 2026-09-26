@@ -233,6 +233,7 @@ app.post("/api/discord/spin", async (req, res) => {
       webhookUrl: process.env.DISCORD_WEBHOOK_URL,
       winner: req.body?.winner,
       gifBase64: req.body?.gif,
+      query: req.body?.query,
     });
 
     res.json({ success: true, ...result });

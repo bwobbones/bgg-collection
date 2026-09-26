@@ -653,6 +653,7 @@ export default {
             null,
           winner: body?.winner,
           gifBase64: body?.gif,
+          query: body?.query,
         });
 
         return new Response(JSON.stringify({ success: true, ...result }), {
