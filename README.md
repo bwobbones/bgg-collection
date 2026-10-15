@@ -172,7 +172,7 @@ limit; the current export is ~0.7 MB for 55 frames at 360×360.
 
 ### Usage Plan / Modes
 
-- **`node index shit`**: All owned games with average rating **<= 7.1** that are **"Best At" 3+ players**.
+- **`node index shit`**: All owned games that are **not Gold** (average rating **<= 7.1** *or* **<= 300 ratings**) that are **"Best At" 3+ players**. This is the exact complement of the `gold` preset, so no game falls through the gap between the two thresholds.
 - **`node index gold`**: All owned games with average rating **>= 7.2** AND **> 300 ratings** that are **"Best At" 3+ players**.
 - **`node index allgold`**: All owned games with average rating **>= 7.2** AND **> 300 ratings** for **ALL player counts**.
 - **`node index 2p`**: All owned games that are **"Best At" 2 players**.

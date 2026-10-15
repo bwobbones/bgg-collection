@@ -1084,7 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const parts = [];
 
     if (activeMode === "gold") parts.push("Gold (avg \u2265 7.2, 300+ ratings)");
-    else if (activeMode === "shit") parts.push("Shit (avg \u2264 7.1)");
+    else if (activeMode === "shit") parts.push("Shit (not Gold: avg \u2264 7.1 or <300 ratings)");
     else parts.push("All games");
 
     const pcs = getSelectedPlayerCounts();
@@ -1494,13 +1494,12 @@ document.addEventListener("DOMContentLoaded", () => {
       i.usersRated !== null &&
       i.usersRated > 300;
 
-    // 1. Filter by Preset Mode (gold, shit)
+    // 1. Filter by Preset Mode (gold, shit). "Shit" is the exact complement of
+    // "Gold", so games with too few ratings (<300) or a rating in the gap
+    // between the two thresholds are never dropped from both lists.
     if (activeMode === "shit") {
       items = items.filter(
-        (i) =>
-          i.averageRating !== null &&
-          i.averageRating <= 7.1 &&
-          matchesPlayerCountsClient(i, selectedPlayerCounts)
+        (i) => !isGold(i) && matchesPlayerCountsClient(i, selectedPlayerCounts)
       );
     } else if (activeMode === "gold") {
       items = items.filter(
