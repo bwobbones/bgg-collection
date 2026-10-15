@@ -2,6 +2,7 @@ import convert from "xml-js";
 import { getExclusionsForUser } from "../lib/exclusions.js";
 import { shareSpinToDiscord } from "../lib/discord.js";
 import { fetchPlaysPages, MAX_PAGES_PER_REQUEST, DEFAULT_PAGES_PER_REQUEST } from "../lib/playsTimeline.js";
+import { fetchGuildMembers, DEFAULT_GUILD_ID } from "../lib/guild.js";
 
 /**
  * Cloudflare Worker with Real-Time SSE Streaming & Cloudflare KV Caching
@@ -721,7 +722,37 @@ export default {
       }
     }
 
-    // 7. Static Assets fallback (serves index.html, app.js, style.css, favicon.svg)
+    // 7. Guild members: GET /api/guild
+    // Returns the member list for a BGG guild so the UI can offer one-click
+    // collection shortcuts. Cached in KV since membership changes rarely.
+    if (url.pathname === "/api/guild") {
+      const token = env?.BGG_TOKEN || globalThis?.BGG_TOKEN || process?.env?.BGG_TOKEN || null;
+      const guildId = (url.searchParams.get("id") || env?.BGG_GUILD_ID || DEFAULT_GUILD_ID).trim();
+      const forceRefresh = url.searchParams.get("forceRefresh") === "true";
+
+      try {
+        const data = await fetchGuildMembers({
+          guildId,
+          token,
+          cache: env?.BGG_EXCLUSIONS_KV || null,
+          forceRefresh,
+        });
+
+        return new Response(JSON.stringify({ success: true, data }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: err.message || "Failed to load the guild members",
+          }),
+          { status: 502, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // 8. Static Assets fallback (serves index.html, app.js, style.css, favicon.svg)
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }

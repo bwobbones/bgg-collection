@@ -8,6 +8,7 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
 - ⏳ **Smart Queue Handling**: Automatically handles BGG's 202 Accepted response / queued collection processing with retries and progress updates.
 - 🔑 **API Authentication**: Supports `BGG_TOKEN` via environment variables (`.env`) or command-line option.
 - 👥 **Best Player Count ("Best At")**: Automatically enriches collection items with BGG community poll data for recommended "Best At" player count.
+- 🏰 **Guild Member Shortcuts**: The web app lists every member of your BGG guild as a one-click link (alongside recently searched usernames), so you can jump straight to a friend's collection.
 - 📊 **Multiple Output Formats**:
   - `table` (default): Colored terminal table showing Title, Best At player count, Avg Rating, and Plays.
   - `simple`: One-liner text list suitable for quick scanning or terminal piping.
@@ -50,6 +51,10 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
    `DISCORD_WEBHOOK_URL` is only needed for the web app's "Send Spin to Discord"
    button. Create one in Discord via **Server Settings → Integrations → Webhooks**.
 
+   `BGG_GUILD_ID` is optional and defaults to `3998` (Heavy Hitters). It controls
+   which guild's members are listed as clickable collection shortcuts; set it to
+   any guild id you belong to, or leave it unset.
+
    For the Cloudflare Worker deployment, store it as a secret instead of a var so
    it is never committed:
 
@@ -87,6 +92,23 @@ Both counts and percentages are computed server-side (`playedCount`,
 `unplayedCount`, `playedPercentage` alongside `goldCount`/`goldPercentage`) and
 returned with the collection payload. The client falls back to counting items
 itself if it receives a cached payload that predates these fields.
+
+## Guild Member Shortcuts
+
+The control panel lists every member of a BGG guild as a clickable link, right
+below the **Recent** usernames row. Clicking a name fills the username field and
+loads that member's collection using the same warm-cache path as the recents.
+
+The guild id defaults to `3998` and can be overridden with the `BGG_GUILD_ID`
+environment variable. Members are fetched through a small server route and cached
+for 24 hours (membership changes rarely):
+
+```
+GET /api/guild?id=<guild-id>&forceRefresh=
+```
+
+Returns `{ success, data: { id, name, members: [...], count } }`. The list
+renders only when the fetch succeeds, so a BGG hiccup never breaks the page.
 
 ## Played Over Time Chart
 

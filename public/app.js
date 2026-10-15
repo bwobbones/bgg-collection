@@ -47,6 +47,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const welcomeCard = document.getElementById("welcomeCard");
   const recentUsernamesRow = document.getElementById("recentUsernamesRow");
   const recentUsernamesList = document.getElementById("recentUsernamesList");
+  const guildMembersRow = document.getElementById("guildMembersRow");
+  const guildMembersList = document.getElementById("guildMembersList");
   const fetchBtn = document.getElementById("fetchBtn");
   const fetchIcon = document.getElementById("fetchIcon");
   const refreshBtn = document.getElementById("refreshBtn");
@@ -599,7 +601,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!recentUsernamesRow || !recentUsernamesList) return;
 
     const users = loadRecentUsernames();
-    const current = usernameInput.value.trim().toLowerCase();
 
     if (users.length === 0) {
       recentUsernamesRow.classList.add("hidden");
@@ -607,7 +608,21 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    recentUsernamesList.innerHTML = users
+    renderUserLinks(recentUsernamesList, users);
+    recentUsernamesRow.classList.remove("hidden");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Guild members (fetched from /api/guild and cached server-side)
+  // ---------------------------------------------------------------------------
+  let guildMembers = [];
+
+  // Shared renderer for the Recent + Guild shortcut rows. Buttons carry the same
+  // class so a single delegated handler can serve both lists.
+  function renderUserLinks(container, users) {
+    const current = usernameInput.value.trim().toLowerCase();
+
+    container.innerHTML = users
       .map((user) => {
         const isCurrent = user.toLowerCase() === current;
         const cls = isCurrent
@@ -616,27 +631,61 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<button type="button" class="recent-user-btn ${cls}" data-username="${user.replace(/"/g, "&quot;")}" title="Load ${user}'s collection">${user}</button>`;
       })
       .join(", ");
-
-    recentUsernamesRow.classList.remove("hidden");
   }
 
-  // Delegate clicks: populate the field, then run the query
-  if (recentUsernamesList) {
-    recentUsernamesList.addEventListener("click", (e) => {
+  function renderGuildMembers() {
+    if (!guildMembersRow || !guildMembersList) return;
+
+    if (guildMembers.length === 0) {
+      guildMembersRow.classList.add("hidden");
+      guildMembersList.innerHTML = "";
+      return;
+    }
+
+    renderUserLinks(guildMembersList, guildMembers);
+    guildMembersRow.classList.remove("hidden");
+  }
+
+  async function loadGuildMembers() {
+    if (!guildMembersList) return;
+
+    try {
+      const res = await fetch("/api/guild");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const payload = await res.json();
+      const members = payload?.data?.members;
+      if (Array.isArray(members)) {
+        guildMembers = members.filter((u) => typeof u === "string" && u.trim());
+        renderGuildMembers();
+      }
+    } catch (e) {
+      // The shortcut row is a convenience; a failure must not break the app.
+      if (guildMembersRow) guildMembersRow.classList.add("hidden");
+    }
+  }
+
+  // Populate the field, refresh the highlights, then run the query. No
+  // forceRefresh: the worker serves warm users straight from KV cache, so
+  // hopping between friends' collections is near-instant.
+  function jumpToUser(user) {
+    const clean = String(user || "").trim();
+    if (!clean) return;
+
+    usernameInput.value = clean;
+    renderRecentUsernames();
+    renderGuildMembers();
+    loadCollection();
+  }
+
+  // Delegate clicks for both the Recent and Guild rows
+  [recentUsernamesList, guildMembersList].forEach((list) => {
+    if (!list) return;
+    list.addEventListener("click", (e) => {
       const btn = e.target.closest(".recent-user-btn");
       if (!btn) return;
-
-      const user = btn.dataset.username;
-      if (!user) return;
-
-      usernameInput.value = user;
-      renderRecentUsernames();
-
-      // No forceRefresh: the worker serves warm users straight from KV cache,
-      // so hopping between friends' collections is near-instant.
-      loadCollection();
+      jumpToUser(btn.dataset.username);
     });
-  }
+  });
 
   // Table pagination — render at most this many rows per page
   const PAGE_SIZE = 200;
@@ -2340,6 +2389,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Restore previously searched usernames from localStorage
   renderRecentUsernames();
+
+  // Load the guild member shortcuts (cached server-side)
+  loadGuildMembers();
 
   // If username is already filled, load; otherwise show welcome card and wait for user input
   if (usernameInput.value.trim()) {

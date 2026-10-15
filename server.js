@@ -6,6 +6,7 @@ import { getProcessedCollection } from "./lib/collectionService.js";
 import { getExclusionsForUser } from "./lib/exclusions.js";
 import { shareSpinToDiscord } from "./lib/discord.js";
 import { fetchPlaysPages, MAX_PAGES_PER_REQUEST, DEFAULT_PAGES_PER_REQUEST } from "./lib/playsTimeline.js";
+import { fetchGuildMembers, DEFAULT_GUILD_ID } from "./lib/guild.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -286,6 +287,29 @@ app.get("/api/plays/pages", async (req, res) => {
     res.json({ success: true, data });
   } catch (err) {
     res.status(502).json({ success: false, error: err.message || "Failed to load the play history" });
+  }
+});
+
+/**
+ * Guild Members: GET /api/guild
+ * Mirrors the Cloudflare Worker route so local development behaves the same.
+ * Reuses the small in-memory cache built for the play-history pages.
+ */
+app.get("/api/guild", async (req, res) => {
+  const guildId = String(req.query.id || process.env.BGG_GUILD_ID || DEFAULT_GUILD_ID).trim();
+  const forceRefresh = String(req.query.forceRefresh) === "true";
+
+  try {
+    const data = await fetchGuildMembers({
+      guildId,
+      token: process.env.BGG_TOKEN,
+      cache: forceRefresh ? null : localPlaysCache,
+      forceRefresh,
+    });
+
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(502).json({ success: false, error: err.message || "Failed to load the guild members" });
   }
 });
 
