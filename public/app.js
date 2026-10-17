@@ -237,13 +237,33 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Reflect the selected rating preset in the button styling
+  function setActivePreset(mode) {
+    activeMode = mode || "";
+    presetButtons.forEach((b) => {
+      b.classList.toggle("active-preset", (b.dataset.mode || "") === activeMode);
+    });
+  }
+
+  // Reflect the selected result tab in the tab styling and content visibility
+  function setActiveTab(tab) {
+    activeTab = tab || "table";
+    tabButtons.forEach((b) => {
+      const isActive = b.dataset.tab === activeTab;
+      b.classList.toggle("bg-white", isActive);
+      b.classList.toggle("text-slate-800", isActive);
+      b.classList.toggle("shadow-sm", isActive);
+      b.classList.toggle("text-slate-500", !isActive);
+    });
+    tabContents.forEach((c) => c.classList.add("hidden"));
+    const target = document.getElementById(`tab${capitalize(activeTab)}`);
+    if (target) target.classList.remove("hidden");
+  }
+
   // Handle Preset Button Clicks (Client-side instant filter)
   presetButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      presetButtons.forEach((b) => b.classList.remove("active-preset"));
-      btn.classList.add("active-preset");
-
-      activeMode = btn.dataset.mode || "";
+      setActivePreset(btn.dataset.mode || "");
 
       if (activeMode === "gold" || activeMode === "shit") {
         setSelectedPlayerCounts(["3p", "4p", "5p", "6+p"]);
@@ -256,19 +276,130 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle Tab Switching
   tabButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      tabButtons.forEach((b) => {
-        b.classList.remove("bg-white", "text-slate-800", "shadow-sm");
-        b.classList.add("text-slate-500");
-      });
-
-      btn.classList.remove("text-slate-500");
-      btn.classList.add("bg-white", "text-slate-800", "shadow-sm");
-
-      activeTab = btn.dataset.tab;
-      tabContents.forEach((c) => c.classList.add("hidden"));
-      document.getElementById(`tab${capitalize(activeTab)}`).classList.remove("hidden");
+      setActiveTab(btn.dataset.tab);
+      persistQueryState(true);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Query persistence — mirror the active query into the URL so a reload (or a
+  // shared link) restores the same preset, pills, filters and view.
+  // ---------------------------------------------------------------------------
+  let queryPersistTimer = null;
+
+  // Debounced: typing in the filters fires this on every keystroke. Writing the
+  // URL once the user pauses avoids hammering the History API (Safari limits
+  // replaceState calls) while staying fast enough to survive a reload.
+  function persistQueryState(immediate = false) {
+    if (queryPersistTimer) {
+      clearTimeout(queryPersistTimer);
+      queryPersistTimer = null;
+    }
+
+    if (immediate) {
+      writeQueryStateToUrl();
+      return;
+    }
+
+    queryPersistTimer = setTimeout(writeQueryStateToUrl, 250);
+  }
+
+  function writeQueryStateToUrl() {
+    queryPersistTimer = null;
+
+    try {
+      const params = new URLSearchParams();
+
+      const username = usernameInput.value.trim();
+      if (username) params.set("u", username);
+
+      if (activeMode) params.set("mode", activeMode);
+
+      // Always write pc, even when empty: the HTML defaults to 3p/4p/5p/6+p
+      // active, so an explicit empty value is what distinguishes "no pills
+      // selected" from "param absent, keep the page defaults".
+      const pcs = getSelectedPlayerCounts();
+      params.set("pc", pcs.join(","));
+
+      const q = searchInput.value.trim();
+      if (q) params.set("q", q);
+
+      if (minRatingInput.value) params.set("minRating", minRatingInput.value);
+      if (minWeightInput && minWeightInput.value) params.set("minWeight", minWeightInput.value);
+      if (yearFromInput && yearFromInput.value.trim()) params.set("yearFrom", yearFromInput.value.trim());
+      if (yearToInput && yearToInput.value.trim()) params.set("yearTo", yearToInput.value.trim());
+
+      if (sortSelect && sortSelect.value && sortSelect.value !== "name") {
+        params.set("sort", sortSelect.value);
+      }
+
+      if (unplayedOnlyInput && unplayedOnlyInput.checked) params.set("unplayed", "1");
+      if (includeExpansionsInput && includeExpansionsInput.checked) params.set("expansions", "1");
+      if (includeExclusionsInput && includeExclusionsInput.checked) params.set("exclusions", "1");
+
+      if (activeTab && activeTab !== "table") params.set("tab", activeTab);
+
+      const qs = params.toString();
+      const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+      // replaceState (not pushState) so typing in filters never fills up history
+      if (next !== current) {
+        history.replaceState(null, "", next);
+      }
+    } catch (e) {
+      // URL persistence is best-effort — never let it break filtering
+    }
+  }
+
+  function restoreQueryStateFromUrl() {
+    let params;
+    try {
+      params = new URLSearchParams(window.location.search);
+    } catch (e) {
+      return;
+    }
+
+    if ([...params.keys()].length === 0) return;
+
+    const username = params.get("u") || params.get("username");
+    if (username) usernameInput.value = username;
+
+    const mode = (params.get("mode") || "").toLowerCase();
+    setActivePreset(mode === "gold" || mode === "shit" ? mode : "");
+
+    // The pc param captures the exact pill state. An absent pc means no pills
+    // were selected, so we deliberately do not re-apply the preset's defaults.
+    if (params.has("pc")) {
+      const counts = (params.get("pc") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      setSelectedPlayerCounts(counts);
+    }
+
+    if (params.has("q")) searchInput.value = params.get("q");
+
+    if (params.has("minRating")) minRatingInput.value = params.get("minRating");
+    if (minWeightInput && params.has("minWeight")) minWeightInput.value = params.get("minWeight");
+    if (yearFromInput && params.has("yearFrom")) yearFromInput.value = params.get("yearFrom");
+    if (yearToInput && params.has("yearTo")) yearToInput.value = params.get("yearTo");
+
+    if (sortSelect && params.get("sort")) {
+      const sort = params.get("sort");
+      const valid = [...sortSelect.options].some((o) => o.value === sort);
+      if (valid) sortSelect.value = sort;
+    }
+
+    if (unplayedOnlyInput) unplayedOnlyInput.checked = params.get("unplayed") === "1";
+    if (includeExpansionsInput) includeExpansionsInput.checked = params.get("expansions") === "1";
+    if (includeExclusionsInput) includeExclusionsInput.checked = params.get("exclusions") === "1";
+
+    const tab = params.get("tab");
+    if (tab && ["table", "compact", "json"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }
 
   // Handle Copy Button
   copyListBtn.addEventListener("click", () => {
@@ -1532,6 +1663,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Instant Client-Side Query Filtering & Rendering
   function applyClientFilters() {
+    // Keep the URL in sync with the active query even before data has loaded
+    persistQueryState();
+
     if (!rawCollectionData || !rawCollectionData.items) return;
 
     let items = [...rawCollectionData.items];
@@ -2027,6 +2161,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const includeExpansions = includeExpansionsInput.checked;
     const includeExclusions = includeExclusionsInput ? includeExclusionsInput.checked : false;
 
+    // Persist the query as soon as a fetch starts so reloading mid-load restores it
+    persistQueryState(true);
+
     // If data is already loaded for this user, expansion & exclusion setting, filter client-side instantly!
     if (
       !forceRefresh &&
@@ -2386,6 +2523,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Apply initial seasonal theme
   applySeasonTheme(currentSeason);
+
+  // Restore the query from the URL before the first load so a reload keeps the
+  // active preset, pills, filters and view.
+  restoreQueryStateFromUrl();
 
   // Restore previously searched usernames from localStorage
   renderRecentUsernames();

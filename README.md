@@ -9,6 +9,7 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
 - 🔑 **API Authentication**: Supports `BGG_TOKEN` via environment variables (`.env`) or command-line option.
 - 👥 **Best Player Count ("Best At")**: Automatically enriches collection items with BGG community poll data for recommended "Best At" player count.
 - 🏰 **Guild Member Shortcuts**: The web app lists every member of your BGG guild as a one-click link (alongside recently searched usernames), so you can jump straight to a friend's collection.
+- 🔗 **Reload-Safe Queries**: The active username, rating preset, player-count pills, search, filters, sort and view are mirrored into the URL, so reloading or sharing the link restores the exact same query.
 - 📊 **Multiple Output Formats**:
   - `table` (default): Colored terminal table showing Title, Best At player count, Avg Rating, and Plays.
   - `simple`: One-liner text list suitable for quick scanning or terminal piping.
@@ -92,6 +93,29 @@ Both counts and percentages are computed server-side (`playedCount`,
 `unplayedCount`, `playedPercentage` alongside `goldCount`/`goldPercentage`) and
 returned with the collection payload. The client falls back to counting items
 itself if it receives a cached payload that predates these fields.
+
+## Reload-Safe Queries
+
+The active query is mirrored into the page URL with `history.replaceState`, so a
+reload restores it and the URL can be bookmarked or shared. Restoring a URL
+auto-loads the named collection (served from the KV cache when warm) and
+re-applies every filter.
+
+| Param | Meaning |
+| --- | --- |
+| `u` | BGG username |
+| `mode` | Rating preset (`gold` or `shit`; omitted for All Games) |
+| `pc` | Selected player-count pills, e.g. `3p,4p,5p,6+p` |
+| `q` | Title search |
+| `minRating`, `minWeight` | Minimum average rating / complexity |
+| `yearFrom`, `yearTo` | Year range |
+| `sort` | Sort key (omitted for the default name sort) |
+| `unplayed` | `1` when “Unplayed Only” is on |
+| `expansions`, `exclusions` | `1` when those fetch options are on |
+| `tab` | Result view (`compact` or `json`; omitted for the table) |
+
+Writes are debounced while typing in a filter field, and flushed immediately
+when a fetch starts or the result tab changes.
 
 ## Guild Member Shortcuts
 
