@@ -11,6 +11,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "serve": "node server.js",
+    "deploy": "npx wrangler deploy",
     "cli": "node index.js"
   },
   "keywords": [
