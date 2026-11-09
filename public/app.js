@@ -265,15 +265,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (target) target.classList.remove("hidden");
   }
 
-  // Handle Preset Button Clicks (Client-side instant filter)
+  // Handle Preset Button Clicks (Client-side instant filter).
+  // Changing the preset only changes the rating preset — it must not touch any
+  // other filter (player-count pills, search, min/max rating, max play time,
+  // year range, sort, options, etc.).
   presetButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       setActivePreset(btn.dataset.mode || "");
-
-      if (activeMode === "gold" || activeMode === "shit") {
-        setSelectedPlayerCounts(["3p", "4p", "5p", "6+p"]);
-      }
-
       applyClientFilters();
     });
   });
