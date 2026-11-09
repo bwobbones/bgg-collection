@@ -8,6 +8,7 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
 - ⏳ **Smart Queue Handling**: Automatically handles BGG's 202 Accepted response / queued collection processing with retries and progress updates.
 - 🔑 **API Authentication**: Supports `BGG_TOKEN` via environment variables (`.env`) or command-line option.
 - 👥 **Best Player Count ("Best At")**: Automatically enriches collection items with BGG community poll data for recommended "Best At" player count.
+- ⏱️ **Playing Time**: The web table shows each game's published playing time in minutes, and the **Max Play Time** filter hides anything longer than the minutes you enter.
 - 🏰 **Guild Member Shortcuts**: The web app lists every member of your BGG guild as a one-click link (alongside recently searched usernames), so you can jump straight to a friend's collection.
 - 🔗 **Reload-Safe Queries**: The active username, rating preset, player-count pills, search, filters, sort and view are mirrored into the URL, so reloading or sharing the link restores the exact same query.
 - 📊 **Multiple Output Formats**:
@@ -19,6 +20,7 @@ A Node.js command-line tool to fetch and display BoardGameGeek (BGG) game collec
   - Filter by ownership/status (`--own`, `--played`, `--rated`, `--wishlist`, `--all`).
   - Search title by string (`-q, --query <text>`).
   - Filter by minimum rating (`--min-rating <number>`) or minimum play count (`--min-plays <number>`).
+  - Filter by maximum playing time in minutes (`--max-playing-time <minutes>`).
   - Filter by subtype (`--subtype boardgameexpansion`, etc.).
 - 🔀 **Flexible Sorting**:
   - Sort by `name`, `year`, `rating` (user rating), `avg-rating` (BGG average rating), `rank`, or `plays`.
@@ -79,7 +81,7 @@ Open `http://localhost:3000` in your browser.
 
 ## Collection Metrics
 
-After a collection loads, two banner cards summarise the whole eligible
+After a collection loads, three banner cards summarise the whole eligible
 collection (owned games, after exclusion and expansion filtering). They describe
 the collection itself and deliberately ignore the rating presets, player-count
 pills, search, min-rating, and "Unplayed Only" filters:
@@ -87,10 +89,12 @@ pills, search, min-rating, and "Unplayed Only" filters:
 | Card | Calculation |
 | --- | --- |
 | **Gold Games** | `averageRating >= 7.2 && usersRated > 300` |
+| **Average Rating** | Unweighted mean of each rated game's `averageRating` ("average of averages"), plus the number of games that have rating data |
 | **Played Games** | `numPlays > 0` (plus the unplayed remainder) |
 
 Both counts and percentages are computed server-side (`playedCount`,
-`unplayedCount`, `playedPercentage` alongside `goldCount`/`goldPercentage`) and
+`unplayedCount`, `playedPercentage` alongside `goldCount`/`goldPercentage`),
+as is the average rating (`collectionAverageRating`/`ratedCount`). They are
 returned with the collection payload. The client falls back to counting items
 itself if it receives a cached payload that predates these fields.
 
@@ -108,6 +112,7 @@ re-applies every filter.
 | `pc` | Selected player-count pills, e.g. `3p,4p,5p,6+p` |
 | `q` | Title search |
 | `minRating`, `minWeight` | Minimum average rating / complexity |
+| `maxPlayTime` | Maximum playing time in minutes |
 | `yearFrom`, `yearTo` | Year range |
 | `sort` | Sort key (omitted for the default name sort) |
 | `unplayed` | `1` when “Unplayed Only” is on |
@@ -303,6 +308,7 @@ Options:
   -l, --limit <number>      Limit output to N items
   -q, --query <text>        Filter titles by search string
   --min-rating <number>     Filter items with average/user rating >= min-rating
+  --max-playing-time <minutes> Filter items with a playing time <= minutes (min)
   --min-plays <number>      Filter items with plays >= min-plays
   --best-at <count>         Filter items where best player count matches N (e.g., 2, 3, 4)
   --no-best                 Skip fetching 'Best At' player count data

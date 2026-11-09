@@ -42,6 +42,7 @@ program
   .option("-q, --query <text>", "Filter titles by search string")
   .option("--min-rating <number>", "Filter items with average/user rating >= min-rating", parseFloat)
   .option("--min-weight <number>", "Filter items with complexity weight >= min-weight (1-5 scale)", parseFloat)
+  .option("--max-playing-time <minutes>", "Filter items with a playing time <= minutes", parseInt)
   .option("--max-rating <number>", "Filter items with average/user rating <= max-rating", parseFloat)
   .option("--min-plays <number>", "Filter items with plays >= min-plays", parseInt)
   .option("--best-at <count>", "Filter items where best player count matches N (e.g., 2, 3, 4)")
@@ -93,6 +94,7 @@ program
         query: options.query,
         minRating: options.minRating,
         minWeight: options.minWeight,
+        maxPlayingTime: options.maxPlayingTime,
         maxRating: options.maxRating,
         minPlays: options.minPlays,
         bestAt: options.bestAt,

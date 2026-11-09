@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("searchInput");
   const minRatingInput = document.getElementById("minRatingInput");
   const minWeightInput = document.getElementById("minWeightInput");
+  const maxPlayTimeInput = document.getElementById("maxPlayTimeInput");
   const yearFromInput = document.getElementById("yearFromInput");
   const yearToInput = document.getElementById("yearToInput");
   const sortSelect = document.getElementById("sortSelect");
@@ -87,6 +88,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const statsCard = document.getElementById("statsCard");
   const statsDetail = document.getElementById("statsDetail");
   const statsPctBadge = document.getElementById("statsPctBadge");
+  const avgRatingStatsCard = document.getElementById("avgRatingStatsCard");
+  const avgRatingStatsDetail = document.getElementById("avgRatingStatsDetail");
+  const avgRatingStatsCountBadge = document.getElementById("avgRatingStatsCountBadge");
+  const avgRatingStatsHint = document.getElementById("avgRatingStatsHint");
   const playedStatsCard = document.getElementById("playedStatsCard");
   const playedStatsDetail = document.getElementById("playedStatsDetail");
   const playedStatsPctBadge = document.getElementById("playedStatsPctBadge");
@@ -326,6 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (minRatingInput.value) params.set("minRating", minRatingInput.value);
       if (minWeightInput && minWeightInput.value) params.set("minWeight", minWeightInput.value);
+      if (maxPlayTimeInput && maxPlayTimeInput.value.trim() !== "") params.set("maxPlayTime", maxPlayTimeInput.value);
       if (yearFromInput && yearFromInput.value.trim()) params.set("yearFrom", yearFromInput.value.trim());
       if (yearToInput && yearToInput.value.trim()) params.set("yearTo", yearToInput.value.trim());
 
@@ -382,6 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (params.has("minRating")) minRatingInput.value = params.get("minRating");
     if (minWeightInput && params.has("minWeight")) minWeightInput.value = params.get("minWeight");
+    if (maxPlayTimeInput && params.has("maxPlayTime")) maxPlayTimeInput.value = params.get("maxPlayTime");
     if (yearFromInput && params.has("yearFrom")) yearFromInput.value = params.get("yearFrom");
     if (yearToInput && params.has("yearTo")) yearToInput.value = params.get("yearTo");
 
@@ -417,6 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
   searchInput.addEventListener("input", () => applyClientFilters());
   minRatingInput.addEventListener("input", () => applyClientFilters());
   if (minWeightInput) minWeightInput.addEventListener("input", () => applyClientFilters());
+  if (maxPlayTimeInput) maxPlayTimeInput.addEventListener("input", () => applyClientFilters());
   if (yearFromInput) yearFromInput.addEventListener("input", () => applyClientFilters());
   if (yearToInput) yearToInput.addEventListener("input", () => applyClientFilters());
   if (sortSelect) sortSelect.addEventListener("change", () => applyClientFilters());
@@ -923,6 +931,22 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-rose-100 text-rose-700 border border-rose-300 shadow-xs">${text}</span>`;
   }
 
+  // Format the number of community ratings. Gold requires more than 300 ratings,
+  // so games below that threshold are visually muted and flagged: their average
+  // rating is unreliable and can otherwise look deceptively high.
+  function formatRatingsBadge(count) {
+    if (count === null || count === undefined || isNaN(count)) {
+      return `<span class="text-slate-300 font-bold" title="No rating data available">—</span>`;
+    }
+    const n = Number(count);
+    const text = n.toLocaleString();
+
+    if (n <= 300) {
+      return `<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200" title="${text} ratings — too few to qualify as Gold (needs 300+)"><i class="fa-solid fa-triangle-exclamation text-[10px] mr-1 text-amber-500"></i>${text}</span>`;
+    }
+    return `<span class="text-xs font-mono font-bold text-slate-600" title="${text} ratings">${text}</span>`;
+  }
+
   // Append line to live activity log console
   function appendActivityLog(step, msg) {
     const time = new Date().toLocaleTimeString();
@@ -1276,6 +1300,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (minWeightInput && minWeightInput.value) {
       const w = parseFloat(minWeightInput.value);
       if (!isNaN(w) && w > 0) parts.push(`Min weight ${w.toFixed(1)}`);
+    }
+    if (maxPlayTimeInput && maxPlayTimeInput.value.trim() !== "") {
+      const mins = parseFloat(maxPlayTimeInput.value);
+      if (!isNaN(mins)) parts.push(`Playing time \u2264 ${mins} min`);
     }
 
     const yf = yearFromInput ? yearFromInput.value.trim() : "";
@@ -1719,6 +1747,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // 4b. Filter by maximum playing time (in minutes). Games with no playing-time
+    // data are dropped while this filter is active, since we cannot confirm they
+    // meet the threshold.
+    if (maxPlayTimeInput && maxPlayTimeInput.value.trim() !== "") {
+      const maxMins = parseFloat(maxPlayTimeInput.value);
+      if (!isNaN(maxMins)) {
+        items = items.filter(
+          (i) => i.playingTime !== null && i.playingTime !== undefined && i.playingTime <= maxMins
+        );
+      }
+    }
+
     // 4. Filter to Unplayed Only (0 recorded plays)
     const unplayedCount = rawCollectionData.items.filter(
       (i) => (i.numPlays || 0) === 0
@@ -1788,6 +1828,38 @@ document.addEventListener("DOMContentLoaded", () => {
       statsCard.classList.remove("hidden");
       statsDetail.textContent = `${rawCollectionData.goldCount} / ${rawCollectionData.totalEligibleCount} Gold Games`;
       statsPctBadge.textContent = `${rawCollectionData.goldPercentage}%`;
+    }
+
+    // Render Average Rating Stats Card (whole collection, independent of filters).
+    // Cached payloads from before this metric existed fall back to a client-side
+    // unweighted mean of the per-game BGG averages.
+    if (avgRatingStatsCard) {
+      const ratedItems = rawCollectionData.items.filter(
+        (i) => typeof i.averageRating === "number" && !isNaN(i.averageRating)
+      );
+      const ratedCount =
+        typeof rawCollectionData.ratedCount === "number"
+          ? rawCollectionData.ratedCount
+          : ratedItems.length;
+      const avgRating =
+        rawCollectionData.collectionAverageRating ??
+        (ratedCount > 0
+          ? (
+              ratedItems.reduce((sum, i) => sum + i.averageRating, 0) /
+              ratedCount
+            ).toFixed(2)
+          : null);
+
+      if (ratedCount > 0 && avgRating !== null) {
+        avgRatingStatsDetail.textContent = `${avgRating} / 10`;
+        avgRatingStatsCountBadge.textContent = `${ratedCount} rated`;
+        if (avgRatingStatsHint) {
+          avgRatingStatsHint.textContent = `Unweighted mean of per-game BGG averages • ${ratedCount} of ${rawCollectionData.totalEligibleCount} games rated`;
+        }
+        avgRatingStatsCard.classList.remove("hidden");
+      } else {
+        avgRatingStatsCard.classList.add("hidden");
+      }
     }
 
     // Render Played Stats Card (whole collection, independent of the active filters)
@@ -2152,6 +2224,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (welcomeCard) welcomeCard.classList.remove("hidden");
       resultsCard.classList.add("hidden");
       statsCard.classList.add("hidden");
+      if (avgRatingStatsCard) avgRatingStatsCard.classList.add("hidden");
       if (playedStatsCard) playedStatsCard.classList.add("hidden");
       resetPlayHistoryUI();
       return;
@@ -2186,6 +2259,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (errorBox) errorBox.classList.add("hidden");
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
+    if (avgRatingStatsCard) avgRatingStatsCard.classList.add("hidden");
     if (playedStatsCard) playedStatsCard.classList.add("hidden");
     resetPlayHistoryUI();
     tableBody.innerHTML = "";
@@ -2453,7 +2527,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderTable() {
     if (!filteredItems) {
-      tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
       if (paginationBar) paginationBar.classList.add("hidden");
       return;
     }
@@ -2472,7 +2546,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsSummary.textContent = `Showing ${total} matching items${pagingNote} (Total in collection: ${rawCollectionData?.totalItems || 0})`;
 
     if (total === 0) {
-      tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
       renderPagination(0);
       return;
     }
@@ -2511,7 +2585,9 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-500">${item.year ?? "—"}</td>
             <td class="py-3.5 px-4">${bestAtBadge}</td>
             <td class="py-3.5 px-4 text-center">${formatRatingBadge(item.averageRating)}</td>
+            <td class="py-3.5 px-4 text-center">${formatRatingsBadge(item.usersRated)}</td>
             <td class="py-3.5 px-4 text-center">${formatWeightBadge(item.weight)}</td>
+            <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-600">${item.playingTime != null ? `${item.playingTime}<span class="text-[10px] text-slate-400 font-normal"> min</span>` : "—"}</td>
             <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-700">${item.numPlays || 0}</td>
           </tr>
         `;
@@ -2541,6 +2617,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (welcomeCard) welcomeCard.classList.remove("hidden");
     resultsCard.classList.add("hidden");
     statsCard.classList.add("hidden");
+    if (avgRatingStatsCard) avgRatingStatsCard.classList.add("hidden");
     if (playedStatsCard) playedStatsCard.classList.add("hidden");
     resetPlayHistoryUI();
   }

@@ -184,6 +184,7 @@ async function processBGGCollection(params, env, onProgress) {
     const usersRated = parseInt(getAttr(item.stats?.rating?.usersrated, "value") || "0", 10);
     const minPlayers = parseInt(getAttr(item.stats, "minplayers"), 10) || null;
     const maxPlayers = parseInt(getAttr(item.stats, "maxplayers"), 10) || null;
+    const playingTime = parseInt(getAttr(item.stats, "playingtime"), 10) || null;
 
     return {
       id,
@@ -191,6 +192,7 @@ async function processBGGCollection(params, env, onProgress) {
       year,
       minPlayers,
       maxPlayers,
+      playingTime,
       subtype: getAttr(item, "subtype") || "boardgame",
       realType: "boardgame",
       status: { own },
@@ -367,6 +369,19 @@ async function processBGGCollection(params, env, onProgress) {
       ? ((goldCount / totalEligibleCount) * 100).toFixed(1)
       : "0.0";
 
+  // Average Rating metric: unweighted mean of each game's BGG average rating
+  // ("average of averages"), computed across the whole eligible collection.
+  const ratedGames = baseGames.filter(
+    (i) => typeof i.averageRating === "number" && !isNaN(i.averageRating)
+  );
+  const ratedCount = ratedGames.length;
+  const collectionAverageRating =
+    ratedCount > 0
+      ? (
+          ratedGames.reduce((sum, i) => sum + i.averageRating, 0) / ratedCount
+        ).toFixed(2)
+      : null;
+
   // Played metrics: games with at least one logged play in the whole collection
   const playedCount = baseGames.filter((i) => (i.numPlays || 0) > 0).length;
   const unplayedCount = totalEligibleCount - playedCount;
@@ -376,6 +391,7 @@ async function processBGGCollection(params, env, onProgress) {
       : "0.0";
 
   await addLog(3, `Gold Metric: ${goldCount} of ${totalEligibleCount} games (${goldPercentage}%) have rating >= 7.2 with >300 votes.`);
+  await addLog(3, `Average Rating Metric: ${collectionAverageRating ?? "N/A"} across ${ratedCount} rated games (unweighted mean of per-game averages).`);
   await addLog(3, `Played Metric: ${playedCount} of ${totalEligibleCount} games (${playedPercentage}%) have at least one logged play; ${unplayedCount} unplayed.`);
   const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
   await addLog(3, `Step 3 Complete: Ready with ${baseGames.length} games (Total time: ${totalDuration}s).`);
@@ -389,6 +405,8 @@ async function processBGGCollection(params, env, onProgress) {
     activeExcludedCount: excludedCount,
     goldCount,
     goldPercentage,
+    collectionAverageRating,
+    ratedCount,
     playedCount,
     unplayedCount,
     playedPercentage,

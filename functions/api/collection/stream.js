@@ -124,7 +124,7 @@ export async function onRequestGet(context) {
       const rawItems = parsedColl?.items?.item ? (Array.isArray(parsedColl.items.item) ? parsedColl.items.item : [parsedColl.items.item]) : [];
 
       if (rawItems.length === 0) {
-        await sendSSE("complete", { success: true, data: { username, totalItems: 0, totalEligibleCount: 0, goldCount: 0, goldPercentage: "0.0", playedCount: 0, unplayedCount: 0, playedPercentage: "0.0", items: [] } });
+        await sendSSE("complete", { success: true, data: { username, totalItems: 0, totalEligibleCount: 0, goldCount: 0, goldPercentage: "0.0", collectionAverageRating: null, ratedCount: 0, playedCount: 0, unplayedCount: 0, playedPercentage: "0.0", items: [] } });
         await writer.close();
         return;
       }
@@ -145,6 +145,7 @@ export async function onRequestGet(context) {
         const own = getAttr(item.status, "own") === "1";
         const avg = parseFloat(getAttr(item.stats?.rating?.average, "value") || "0");
         const usersRated = parseInt(getAttr(item.stats?.rating?.usersrated, "value") || "0", 10);
+        const playingTime = parseInt(getAttr(item.stats, "playingtime"), 10) || null;
 
         return {
           id,
@@ -156,6 +157,7 @@ export async function onRequestGet(context) {
           numPlays,
           averageRating: avg || null,
           usersRated: usersRated || 0,
+          playingTime,
           bestAt: null,
           thumbnail,
         };
@@ -252,6 +254,11 @@ export async function onRequestGet(context) {
       const totalEligibleCount = baseGames.length;
       const goldCount = baseGames.filter(i => (i.averageRating ?? 0) >= 7.2 && (i.usersRated ?? 0) > 300).length;
       const goldPercentage = totalEligibleCount > 0 ? ((goldCount / totalEligibleCount) * 100).toFixed(1) : "0.0";
+      const ratedGames = baseGames.filter(i => typeof i.averageRating === "number" && !isNaN(i.averageRating));
+      const ratedCount = ratedGames.length;
+      const collectionAverageRating = ratedCount > 0
+        ? (ratedGames.reduce((sum, i) => sum + i.averageRating, 0) / ratedCount).toFixed(2)
+        : null;
     const playedCount = baseGames.filter(i => (i.numPlays || 0) > 0).length;
     const unplayedCount = totalEligibleCount - playedCount;
     const playedPercentage = totalEligibleCount > 0 ? ((playedCount / totalEligibleCount) * 100).toFixed(1) : "0.0";
@@ -266,6 +273,8 @@ export async function onRequestGet(context) {
           activeExcludedCount: excludedCount,
           goldCount,
           goldPercentage,
+          collectionAverageRating,
+          ratedCount,
           playedCount,
           unplayedCount,
           playedPercentage,

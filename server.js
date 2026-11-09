@@ -111,6 +111,7 @@ app.get("/api/collection/stream", async (req, res) => {
       minRating,
       maxRating,
       minPlays,
+      maxPlayingTime,
       bestAt,
       playerCounts,
       includeExpansions,
@@ -124,6 +125,7 @@ app.get("/api/collection/stream", async (req, res) => {
       minRating: minRating ? parseFloat(minRating) : null,
       maxRating: maxRating ? parseFloat(maxRating) : null,
       minPlays: minPlays ? parseInt(minPlays, 10) : null,
+      maxPlayingTime: maxPlayingTime ? parseInt(maxPlayingTime, 10) : null,
       bestAt: bestAt ? String(bestAt).trim() : null,
       playerCounts: playerCounts
         ? Array.isArray(playerCounts)
@@ -169,6 +171,7 @@ app.get("/api/collection", async (req, res) => {
       minRating,
       maxRating,
       minPlays,
+      maxPlayingTime,
       bestAt,
       playerCounts,
       includeExpansions,
@@ -182,6 +185,7 @@ app.get("/api/collection", async (req, res) => {
       minRating: minRating ? parseFloat(minRating) : null,
       maxRating: maxRating ? parseFloat(maxRating) : null,
       minPlays: minPlays ? parseInt(minPlays, 10) : null,
+      maxPlayingTime: maxPlayingTime ? parseInt(maxPlayingTime, 10) : null,
       bestAt: bestAt ? String(bestAt).trim() : null,
       playerCounts: playerCounts
         ? Array.isArray(playerCounts)

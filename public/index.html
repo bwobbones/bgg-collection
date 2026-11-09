@@ -172,7 +172,7 @@
             <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
               Refine &amp; Sort
             </span>
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 items-end">
               <div>
                 <label for="minRatingInput" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                   Min Rating
@@ -190,6 +190,19 @@
                     class="season-input w-full bg-white border border-slate-200 rounded-xl pl-3 pr-10 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                   <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
                     /5
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label for="maxPlayTimeInput" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Max Play Time
+                </label>
+                <div class="relative">
+                  <input type="number" id="maxPlayTimeInput" step="5" min="0" placeholder="any" title="Show games with a playing time of this many minutes or less"
+                    class="season-input w-full bg-white border border-slate-200 rounded-xl pl-3 pr-10 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 transition">
+                  <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                    min
                   </span>
                 </div>
               </div>
@@ -406,6 +419,27 @@
       </div>
     </div>
 
+    <!-- Average Rating Metric Card (whole collection) -->
+    <div id="avgRatingStatsCard" class="hidden season-card bg-gradient-to-r from-violet-500/10 via-violet-100/40 to-white border border-violet-300 rounded-2xl p-5 shadow-md">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="p-3.5 bg-violet-500 text-white rounded-2xl text-2xl shadow-md">
+            <i class="fa-solid fa-star-half-stroke"></i>
+          </div>
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-violet-700">Average Rating Metric</h2>
+            <p id="avgRatingStatsDetail" class="text-2xl font-black text-slate-800 mt-0.5">7.34 / 10</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <span id="avgRatingStatsCountBadge" class="inline-block bg-violet-500 text-white font-black text-2xl px-4 py-1.5 rounded-xl shadow-md">
+            298
+          </span>
+          <p id="avgRatingStatsHint" class="text-xs text-slate-500 font-medium mt-1">Unweighted mean of per-game BGG averages</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Played Games Metric Card (whole collection) - click to toggle the play history chart -->
     <div id="playedStatsCard" role="button" tabindex="0" aria-expanded="false" aria-controls="playHistoryCard" title="Show or hide the played-over-time chart"
       class="hidden season-card bg-gradient-to-r from-emerald-500/10 via-emerald-100/40 to-white border border-emerald-300 rounded-2xl p-5 shadow-md cursor-pointer select-none transition hover:shadow-lg hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400">
@@ -530,7 +564,9 @@
               <th class="py-3.5 px-4 w-16 text-center">Year</th>
               <th class="py-3.5 px-4 w-36">Best At</th>
               <th class="py-3.5 px-4 w-24 text-center">Avg Rating</th>
+              <th class="py-3.5 px-4 w-24 text-center">Ratings</th>
               <th class="py-3.5 px-4 w-24 text-center">Weight</th>
+              <th class="py-3.5 px-4 w-24 text-center">Playing Time</th>
               <th class="py-3.5 px-4 w-20 text-center">Plays</th>
             </tr>
           </thead>
