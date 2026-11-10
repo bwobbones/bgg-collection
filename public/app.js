@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let isSpinning = false;
   // Spin weighting: a game's selection weight halves for every N logged plays.
   // Heavily played games stay possible, just less likely.
-  const SPIN_PLAY_HALF_LIFE = 5;
+  const SPIN_PLAY_HALF_LIFE = 3;
 
   const usernameInput = document.getElementById("usernameInput");
   const searchInput = document.getElementById("searchInput");
@@ -1381,7 +1381,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Spin Wheel Physics Animation
   // Give unplayed games the highest weight, tapering off as play count grows.
-  // 1 play is ~17% less likely than 0; 5 plays is half as likely.
+  // 1 play is 25% less likely than 0; 3 plays is half as likely.
   function getSpinWeight(item) {
     const plays = Math.max(0, Number(item?.numPlays) || 0);
     return 1 / (1 + plays / SPIN_PLAY_HALF_LIFE);

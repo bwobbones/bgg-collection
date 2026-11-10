@@ -201,7 +201,7 @@ Discord channel as an animated GIF.
 2. Click **Open Wheel of Fortune** and hit **SPIN THE WHEEL!**
 
 Selection is weighted in favour of games you have not played: each game's
-weight halves for every 5 logged plays. Heavily played games can still be spun,
+weight halves for every 3 logged plays. Heavily played games can still be spun,
 they are just much less likely. Sorting/filters apply first, then the weighted
 pick happens within the filtered pool.
 3. Once a winner is announced, click **Send Spin to Discord**.
