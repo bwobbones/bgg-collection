@@ -1,6 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
   let rawCollectionData = null; // Full dataset loaded from BGG server
   let filteredItems = [];       // Client-side filtered items
+  let notShitIds = new Set();   // IDs explicitly marked "not shit" (always Gold)
+  let savedNotShitIds = new Set();
+  let notShitSaveTimer = null;
   let activeMode = "";          // '', 'gold', 'shit'
   let activeTab = "table";
   let eventSource = null;
@@ -426,6 +429,55 @@ document.addEventListener("DOMContentLoaded", () => {
   if (yearFromInput) yearFromInput.addEventListener("input", () => applyClientFilters());
   if (yearToInput) yearToInput.addEventListener("input", () => applyClientFilters());
   if (sortSelect) sortSelect.addEventListener("change", () => applyClientFilters());
+
+  // "Not Shit" override: toggling a row's checkbox persists the game ID for the
+  // current BGG user, so it is treated as Gold on this and future loads.
+  async function saveNotShitState() {
+    notShitSaveTimer = null;
+    const user = (loadedUsername || usernameInput.value.trim() || "").toLowerCase();
+    if (!user) return;
+
+    const ids = [...notShitIds];
+    try {
+      const res = await fetch("/api/not-shit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username: user, ids }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "Failed to save gold overrides");
+      savedNotShitIds = new Set(notShitIds);
+      if (rawCollectionData) rawCollectionData.notShitIds = ids;
+    } catch (err) {
+      // Roll back the optimistic change so the UI matches what was persisted.
+      notShitIds = new Set(savedNotShitIds);
+      if (rawCollectionData) rawCollectionData.notShitIds = [...savedNotShitIds];
+      applyClientFilters();
+      alert(`Error saving "not shit" override: ${err.message}`);
+    }
+  }
+
+  if (tableBody) {
+    tableBody.addEventListener("change", (e) => {
+      const checkbox = e.target.closest(".not-shit-checkbox");
+      if (!checkbox) return;
+
+      const id = Number(checkbox.dataset.id);
+      if (!Number.isFinite(id)) return;
+
+      if (checkbox.checked) notShitIds.add(id);
+      else notShitIds.delete(id);
+
+      if (rawCollectionData) rawCollectionData.notShitIds = [...notShitIds];
+
+      // Re-render immediately; persist after a short pause so rapid clicks
+      // coalesce into one request containing the final state.
+      applyClientFilters();
+      if (notShitSaveTimer) clearTimeout(notShitSaveTimer);
+      notShitSaveTimer = setTimeout(saveNotShitState, 400);
+    });
+  }
 
   // Reload collection only on Enter key or when input loses focus (change)
   usernameInput.addEventListener("keydown", (e) => {
@@ -1285,7 +1337,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function captureWheelQuery() {
     const parts = [];
 
-    if (activeMode === "gold") parts.push("Gold (avg \u2265 7.2, 300+ ratings)");
+    if (activeMode === "gold") parts.push("Gold (rating threshold or Not Shit)");
     else if (activeMode === "shit") parts.push("Shit (not Gold: avg \u2264 7.1 or <300 ratings)");
     else parts.push("All games");
 
@@ -1698,10 +1750,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedPlayerCounts = getSelectedPlayerCounts();
 
     const isGold = (i) =>
-      i.averageRating !== null &&
-      i.averageRating >= 7.2 &&
-      i.usersRated !== null &&
-      i.usersRated > 300;
+      notShitIds.has(Number(i.id)) ||
+      (i.averageRating !== null &&
+        i.averageRating >= 7.2 &&
+        i.usersRated !== null &&
+        i.usersRated > 300);
 
     // 1. Filter by Preset Mode (gold, shit). "Shit" is the exact complement of
     // "Gold", so games with too few ratings (<300) or a rating in the gap
@@ -1821,11 +1874,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Any filter change invalidates the current page position
     currentPage = 1;
 
-    // Render Gold Stats Card
+    // Render Gold Stats Card. Count locally so "not shit" overrides are
+    // reflected immediately, without waiting for a server refresh.
     if (rawCollectionData.totalEligibleCount > 0) {
+      const totalEligible = rawCollectionData.totalEligibleCount;
+      const goldCount = (rawCollectionData.items || []).filter(isGold).length;
+      const goldPercentage =
+        totalEligible > 0 ? ((goldCount / totalEligible) * 100).toFixed(1) : "0.0";
+
       statsCard.classList.remove("hidden");
-      statsDetail.textContent = `${rawCollectionData.goldCount} / ${rawCollectionData.totalEligibleCount} Gold Games`;
-      statsPctBadge.textContent = `${rawCollectionData.goldPercentage}%`;
+      statsDetail.textContent = `${goldCount} / ${totalEligible} Gold Games`;
+      statsPctBadge.textContent = `${goldPercentage}%`;
     }
 
     // Render Average Rating Stats Card (whole collection, independent of filters).
@@ -2307,6 +2366,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const handleSuccessData = (payloadData) => {
       rawCollectionData = payloadData;
       loadedUsername = username;
+      notShitIds = new Set(
+        (Array.isArray(rawCollectionData.notShitIds) ? rawCollectionData.notShitIds : [])
+          .map(Number)
+          .filter((n) => Number.isFinite(n))
+      );
+      savedNotShitIds = new Set(notShitIds);
       loadedIncludeExpansions = includeExpansions;
       loadedIncludeExclusions = includeExclusions;
 
@@ -2525,7 +2590,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderTable() {
     if (!filteredItems) {
-      tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-slate-500">No collection data loaded.</td></tr>`;
       if (paginationBar) paginationBar.classList.add("hidden");
       return;
     }
@@ -2544,7 +2609,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsSummary.textContent = `Showing ${total} matching items${pagingNote} (Total in collection: ${rawCollectionData?.totalItems || 0})`;
 
     if (total === 0) {
-      tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-slate-500">No games found matching current filters.</td></tr>`;
       renderPagination(0);
       return;
     }
@@ -2583,6 +2648,11 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-500">${item.year ?? "—"}</td>
             <td class="py-3.5 px-4">${bestAtBadge}</td>
             <td class="py-3.5 px-4 text-center">${formatRatingBadge(item.averageRating)}</td>
+            <td class="py-3.5 px-4 text-center">
+              <input type="checkbox" class="not-shit-checkbox w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-2 focus:ring-amber-400 cursor-pointer align-middle"
+                data-id="${item.id}" ${notShitIds.has(Number(item.id)) ? "checked" : ""}
+                title="Mark as not shit — always count this game as Gold" aria-label="Mark ${item.name} as not shit">
+            </td>
             <td class="py-3.5 px-4 text-center">${formatRatingsBadge(item.usersRated)}</td>
             <td class="py-3.5 px-4 text-center">${formatWeightBadge(item.weight)}</td>
             <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-600">${item.playingTime != null ? `${item.playingTime}<span class="text-[10px] text-slate-400 font-normal"> min</span>` : "—"}</td>

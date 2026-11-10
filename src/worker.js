@@ -74,6 +74,41 @@ async function getUserExclusions(env, username) {
 }
 
 /**
+ * Fetch the per-user set of game IDs explicitly marked "not shit". These games
+ * are treated as Gold even when they fail the rating/vote thresholds.
+ */
+async function getNotShitIds(env, username) {
+  const normUser = String(username || "bwobbones").trim().toLowerCase();
+
+  if (env?.BGG_EXCLUSIONS_KV) {
+    try {
+      const kvVal = await env.BGG_EXCLUSIONS_KV.get(`not-shit:${normUser}`, "json");
+      if (Array.isArray(kvVal)) {
+        return kvVal.map(Number).filter((n) => Number.isFinite(n));
+      }
+    } catch (e) {
+      console.error("KV not-shit read error:", e);
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Drop every cached collection variant for a user so exclusion / gold-override
+ * changes take effect immediately.
+ */
+async function invalidateCollectionCache(env, username) {
+  if (!env?.BGG_EXCLUSIONS_KV) return;
+  const user = String(username || "bwobbones").trim().toLowerCase();
+  await Promise.all(
+    ["0:0", "1:0", "0:1", "1:1"].map((variant) =>
+      env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${user}:${variant}`)
+    )
+  );
+}
+
+/**
  * Process BGG Collection with live progress callbacks and KV caching
  */
 async function processBGGCollection(params, env, onProgress) {
@@ -333,6 +368,11 @@ async function processBGGCollection(params, env, onProgress) {
 
   // Fetch cross-browser persistent exclusions from KV
   const userExcl = await getUserExclusions(env, username);
+  const notShitIds = await getNotShitIds(env, username);
+  const notShitSet = new Set(notShitIds);
+  const isGold = (i) =>
+    notShitSet.has(i.id) ||
+    ((i.averageRating ?? 0) >= 7.2 && (i.usersRated ?? 0) > 300);
   const exclSet = new Set(userExcl.map((e) => e.toLowerCase().trim()));
   const excludedCount = baseGames.filter((i) =>
     exclSet.has(i.name.toLowerCase().trim())
@@ -361,9 +401,7 @@ async function processBGGCollection(params, env, onProgress) {
   }
 
   const totalEligibleCount = baseGames.length;
-  const goldCount = baseGames.filter(
-    (i) => (i.averageRating ?? 0) >= 7.2 && (i.usersRated ?? 0) > 300
-  ).length;
+  const goldCount = baseGames.filter(isGold).length;
   const goldPercentage =
     totalEligibleCount > 0
       ? ((goldCount / totalEligibleCount) * 100).toFixed(1)
@@ -390,7 +428,7 @@ async function processBGGCollection(params, env, onProgress) {
       ? ((playedCount / totalEligibleCount) * 100).toFixed(1)
       : "0.0";
 
-  await addLog(3, `Gold Metric: ${goldCount} of ${totalEligibleCount} games (${goldPercentage}%) have rating >= 7.2 with >300 votes.`);
+  await addLog(3, `Gold Metric: ${goldCount} of ${totalEligibleCount} games (${goldPercentage}%) are Gold${notShitIds.length ? ` (includes ${notShitIds.length} \"not shit\" override${notShitIds.length === 1 ? "" : "s"})` : ""}.`);
   await addLog(3, `Average Rating Metric: ${collectionAverageRating ?? "N/A"} across ${ratedCount} rated games (unweighted mean of per-game averages).`);
   await addLog(3, `Played Metric: ${playedCount} of ${totalEligibleCount} games (${playedPercentage}%) have at least one logged play; ${unplayedCount} unplayed.`);
   const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -405,6 +443,7 @@ async function processBGGCollection(params, env, onProgress) {
     activeExcludedCount: excludedCount,
     goldCount,
     goldPercentage,
+    notShitIds,
     collectionAverageRating,
     ratedCount,
     playedCount,
@@ -514,10 +553,7 @@ export default {
               JSON.stringify(newExclusions)
             );
             // Invalidate collection caches for this user
-            await env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${targetUser}:0:0`);
-            await env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${targetUser}:1:0`);
-            await env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${targetUser}:0:1`);
-            await env.BGG_EXCLUSIONS_KV.delete(`cache:coll:${targetUser}:1:1`);
+            await invalidateCollectionCache(env, targetUser);
           }
 
           return new Response(
@@ -602,6 +638,58 @@ export default {
           "Connection": "keep-alive",
         },
       });
+    }
+
+    // 3. Manage Gold Overrides ("not shit") API routes: GET & POST /api/not-shit
+    if (url.pathname === "/api/not-shit") {
+      const normUser = (
+        url.searchParams.get("username") ||
+        env?.BGG_USERNAME ||
+        "bwobbones"
+      )
+        .trim()
+        .toLowerCase();
+
+      if (request.method === "GET") {
+        const ids = await getNotShitIds(env, normUser);
+        return new Response(
+          JSON.stringify({ success: true, username: normUser, ids }),
+          { headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const targetUser = String(body.username || normUser).trim().toLowerCase();
+          const ids = Array.isArray(body.ids)
+            ? [...new Set(body.ids.map(Number).filter((n) => Number.isFinite(n)))]
+            : [];
+
+          if (env?.BGG_EXCLUSIONS_KV) {
+            await env.BGG_EXCLUSIONS_KV.put(
+              `not-shit:${targetUser}`,
+              JSON.stringify(ids)
+            );
+            await invalidateCollectionCache(env, targetUser);
+          }
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              username: targetUser,
+              ids,
+              count: ids.length,
+            }),
+            { headers: { "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ success: false, error: err.message }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
     // 4. Standard JSON Collection Endpoint: GET /api/collection

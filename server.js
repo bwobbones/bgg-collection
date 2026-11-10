@@ -118,6 +118,7 @@ app.get("/api/collection/stream", async (req, res) => {
       includeExclusions,
     } = req.query;
 
+    const normUser = String(username || process.env.BGG_USERNAME || "bwobbones").trim().toLowerCase();
     const result = await getProcessedCollection({
       username: username ? String(username).trim() : undefined,
       mode: mode ? String(mode).trim() : undefined,
@@ -134,6 +135,7 @@ app.get("/api/collection/stream", async (req, res) => {
         : undefined,
       includeExpansions: includeExpansions === "true" || includeExpansions === "1",
       includeExclusions: includeExclusions === "true" || includeExclusions === "1",
+      notShitIds: localNotShitStore.get(normUser) || [],
       verbose: true,
       onProgress: (p) => sendSSE("progress", p),
     });
@@ -178,6 +180,7 @@ app.get("/api/collection", async (req, res) => {
       includeExclusions,
     } = req.query;
 
+    const normUser = String(username || process.env.BGG_USERNAME || "bwobbones").trim().toLowerCase();
     const result = await getProcessedCollection({
       username: username ? String(username).trim() : undefined,
       mode: mode ? String(mode).trim() : undefined,
@@ -194,6 +197,7 @@ app.get("/api/collection", async (req, res) => {
         : undefined,
       includeExpansions: includeExpansions === "true" || includeExpansions === "1",
       includeExclusions: includeExclusions === "true" || includeExclusions === "1",
+      notShitIds: localNotShitStore.get(normUser) || [],
       verbose: true,
     });
 
@@ -211,6 +215,8 @@ app.get("/api/collection", async (req, res) => {
 
 // In-memory persistent exclusions store for local development server
 const localExclusionsStore = new Map();
+// Per-user "not shit" gold overrides for local development (game IDs)
+const localNotShitStore = new Map();
 
 /**
  * Exclusions API Routes: GET & POST /api/exclusions
@@ -226,6 +232,24 @@ app.post("/api/exclusions", (req, res) => {
   const exclusions = Array.isArray(req.body.exclusions) ? req.body.exclusions : [];
   localExclusionsStore.set(normUser, exclusions);
   res.json({ success: true, username: normUser, exclusions, count: exclusions.length });
+});
+
+/**
+ * Gold Overrides ("not shit") API Routes: GET & POST /api/not-shit
+ */
+app.get("/api/not-shit", (req, res) => {
+  const normUser = String(req.query.username || "bwobbones").trim().toLowerCase();
+  const ids = localNotShitStore.get(normUser) || [];
+  res.json({ success: true, username: normUser, ids });
+});
+
+app.post("/api/not-shit", (req, res) => {
+  const normUser = String(req.body.username || "bwobbones").trim().toLowerCase();
+  const ids = Array.isArray(req.body.ids)
+    ? [...new Set(req.body.ids.map(Number).filter((n) => Number.isFinite(n)))]
+    : [];
+  localNotShitStore.set(normUser, ids);
+  res.json({ success: true, username: normUser, ids, count: ids.length });
 });
 
 /**

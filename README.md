@@ -88,7 +88,7 @@ pills, search, min-rating, and "Unplayed Only" filters:
 
 | Card | Calculation |
 | --- | --- |
-| **Gold Games** | `averageRating >= 7.2 && usersRated > 300` |
+| **Gold Games** | `averageRating >= 7.2 && usersRated > 300`, **or** the game is marked **Not Shit** for that user |
 | **Average Rating** | Unweighted mean of each rated game's `averageRating` ("average of averages"), plus the number of games that have rating data |
 | **Played Games** | `numPlays > 0` (plus the unplayed remainder) |
 
@@ -97,6 +97,10 @@ Both counts and percentages are computed server-side (`playedCount`,
 as is the average rating (`collectionAverageRating`/`ratedCount`). They are
 returned with the collection payload. The client falls back to counting items
 itself if it receives a cached payload that predates these fields.
+
+Per-user **Not Shit** overrides are stored by BGG game ID and returned in the
+payload as `notShitIds`. They are treated as Gold for both the metric card and
+the Gold/Shit presets.
 
 ## Reload-Safe Queries
 
@@ -342,5 +346,20 @@ export const EXCLUSION_LIST = [
   "Wingspan",
 ];
 ```
+
+## Not Shit / Gold Overrides
+
+Each row in the results table has a **Not Shit** checkbox. Ticking it marks that
+BGG game as Gold for the current username, even if it fails the normal
+`>= 7.2 && > 300 ratings` thresholds. Untick it to remove the override.
+
+- Overrides are keyed by **BGG game ID**, not title, so editions and renames do
+  not break them.
+- In production they are stored in Cloudflare KV under `not-shit:<username>` as
+  a JSON array of IDs. Saving invalidates that user's collection cache.
+- The local Express server keeps them in memory only (like exclusions), so they
+  reset when the server restarts.
+- API: `GET /api/not-shit?username=<user>` and `POST /api/not-shit` with
+  `{ "username": "<user>", "ids": [123, 456] }`.
 
 ISC
