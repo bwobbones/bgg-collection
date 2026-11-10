@@ -31,6 +31,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let ctx = wheelCanvas ? wheelCanvas.getContext("2d") : null;
   let currentAngle = 0;
   let isSpinning = false;
+  // Spin weighting: a game's selection weight halves for every N logged plays.
+  // Heavily played games stay possible, just less likely.
+  const SPIN_PLAY_HALF_LIFE = 100;
 
   const usernameInput = document.getElementById("usernameInput");
   const searchInput = document.getElementById("searchInput");
@@ -1377,6 +1380,28 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Spin Wheel Physics Animation
+  // Give unplayed games the highest weight, tapering off gently as play count
+  // grows. 1 play is ~1% less likely than 0; 100 plays is half as likely.
+  function getSpinWeight(item) {
+    const plays = Math.max(0, Number(item?.numPlays) || 0);
+    return 1 / (1 + plays / SPIN_PLAY_HALF_LIFE);
+  }
+
+  function pickWeightedSliceIndex(items) {
+    if (!items || items.length === 0) return 0;
+
+    const weights = items.map(getSpinWeight);
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    if (!(total > 0)) return Math.floor(Math.random() * items.length);
+
+    let roll = Math.random() * total;
+    for (let i = 0; i < weights.length; i++) {
+      roll -= weights[i];
+      if (roll < 0) return i;
+    }
+    return items.length - 1;
+  }
+
   function spinWheel() {
     isSpinning = true;
     doSpinBtn.disabled = true;
@@ -1389,7 +1414,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const arc = (2 * Math.PI) / numSlices;
 
     const extraRotations = 5 + Math.floor(Math.random() * 4);
-    const randomSlice = Math.floor(Math.random() * numSlices);
+    const randomSlice = pickWeightedSliceIndex(currentWheelItems);
     const targetAngle =
       extraRotations * 2 * Math.PI +
       (3 * Math.PI) / 2 -
